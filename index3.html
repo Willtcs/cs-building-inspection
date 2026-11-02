@@ -1,0 +1,2159 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>樓宇檢測報告 Web App</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome for Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    /* Custom Scrollbars & Touch smooth scroll */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #e5eff4;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #b2c5d5;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #aecedd;
+    }
+    
+    /* Hide horizontal scrollbar for clean tab scrolling */
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+
+    /* Touch Action & Prevent Pull Refresh inside overlay */
+    .touch-pan-zoom {
+      touch-action: pan-x pan-y pinch-zoom;
+    }
+
+    /* Chrome 氣泡分頁標籤自定義樣式 */
+    .chrome-tab-container {
+      border-bottom: none;
+      touch-action: pan-x !important;
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior-x: contain;
+      overscroll-behavior-y: none;
+    }
+
+    .chrome-tab {
+      position: relative;
+      border-top-left-radius: 8px;
+      border-top-right-radius: 8px;
+      border: none;
+      background-color: #e5eff4;
+      color: #475569;
+      transition: all 0.15s ease-in-out;
+      margin-bottom: -1px;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: pan-x !important;
+    }
+
+    .chrome-tab:hover {
+      background-color: #aecedd;
+      color: #1e293b;
+    }
+
+    .chrome-tab.active {
+      background-color: #d4e4ee;
+      color: #0f172a;
+      border: none !important;
+      box-shadow: none !important;
+      z-index: 10;
+      font-weight: 700;
+    }
+
+    /* A4 Excel-Style Dynamic Print Rules */
+    @media print {
+      body {
+        background: white !important;
+        color: black !important;
+        overflow: visible !important;
+        height: auto !important;
+      }
+      header, nav, #navBackBtn, #addPropertyBtn, #addRoomBtn, .no-print, button, #page1, #page2, #page3, #lightboxModal, #propertyModal, #roomModal, #categoryModal, #addSubModal, #addProblemModal, #addCategoryModal, #deleteCategoryModal, #deleteSubModal, #deleteProblemModal, #selectCategoryModal {
+        display: none !important;
+      }
+      #mainContainer {
+        padding: 0 !important;
+        margin: 0 !important;
+        max-width: 100% !important;
+        width: 100% !important;
+        overflow: visible !important;
+      }
+      .print-area {
+        display: block !important;
+      }
+      .excel-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 11pt;
+        margin-top: 10px;
+      }
+      .excel-table th, .excel-table td {
+        border: 1px solid #000 !important;
+        padding: 6px 8px;
+        text-align: left;
+        vertical-align: top;
+      }
+      .excel-table th {
+        background-color: #f2f2f2 !important;
+        font-weight: bold;
+        -webkit-print-color-adjust: exact;
+      }
+      @page {
+        margin: 10mm;
+      }
+    }
+  </style>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            appBg: '#d4e4ee',
+            headerBg: '#b1d9d4',
+            accentBtn: '#aecedd',
+            cardBg: '#e5eff4',
+            borderCol: '#b2c5d5'
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-appBg text-slate-800 font-sans min-h-screen flex flex-col antialiased selection:bg-[#aecedd] selection:text-slate-900">
+
+  <!-- APP HEADER -->
+  <header class="bg-headerBg text-slate-900 sticky top-0 z-30 shadow-md no-print border-b border-[#b2c5d5]/40">
+    <div class="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <button id="navBackBtn" class="hidden text-slate-700 hover:text-slate-900 p-2 rounded-lg hover:bg-white/30 transition">
+          <i class="fa-solid fa-chevron-left text-lg"></i>
+        </button>
+        <div class="flex items-center space-x-2">
+          <i class="fa-solid fa-clipboard-check text-slate-800 text-xl"></i>
+          <h1 id="headerTitle" class="font-bold text-lg tracking-wide">樓宇檢測報告</h1>
+        </div>
+      </div>
+      <div class="flex items-center space-x-1 sm:space-x-2">
+        <button id="backupBtn" style="display: none;" class="bg-transparent hover:bg-white/30 text-slate-800 p-2.5 rounded-lg text-lg flex items-center justify-center transition cursor-pointer border border-transparent" title="備份 JSON">
+          <i class="fa-solid fa-box-archive"></i>
+        </button>
+        <button id="restoreBtn" style="display: none;" class="bg-transparent hover:bg-white/30 text-slate-800 p-2.5 rounded-lg text-lg flex items-center justify-center transition cursor-pointer border border-transparent" title="還原備份 JSON">
+          <i class="fa-solid fa-file-arrow-up"></i>
+        </button>
+        <input type="file" id="restoreInput" accept=".json" class="hidden">
+
+        <button id="page2PrintBtn" class="bg-[#b1d9d4] hover:bg-[#9bc2d4] text-slate-900 px-3 py-1.5 rounded-lg text-lg font-semibold flex items-center gap-1.5 transition shadow-xs cursor-pointer">
+          <i class="fa-solid fa-print"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN CONTAINER -->
+  <main id="mainContainer" class="flex-1 max-w-4xl w-full mx-auto p-4 md:p-6 pb-20">
+
+    <!-- PAGE 1: PROPERTY LIST -->
+    <section id="page1" class="space-y-4">
+      <div class="bg-cardBg p-4 rounded-xl shadow-xs border border-[#b2c5d5] space-y-3">
+        <div class="flex gap-2">
+          <div class="relative flex-1">
+            <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500"></i>
+            <input type="text" id="p1Search" placeholder="搜尋地點、業主或地區..." class="w-full pl-10 pr-4 py-2 bg-white border border-[#b2c5d5] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#aecedd] transition">
+          </div>
+          <button id="p1ResetBtn" class="bg-white hover:bg-[#aecedd] text-slate-700 px-4 py-2 rounded-lg text-sm font-semibold border border-[#b2c5d5] flex items-center gap-1.5 transition shadow-xs shrink-0">
+            <i class="fa-solid fa-rotate-left"></i>
+            <span>重設</span>
+          </button>
+        </div>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+          <div>
+            <label class="block text-slate-600 mb-1 font-medium">排序方式</label>
+            <select id="p1Sort" class="w-full bg-white border border-[#b2c5d5] rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#aecedd]">
+              <option value="date-desc">最新檢測日期</option>
+              <option value="date-asc">最舊檢測日期</option>
+              <option value="name">地點名稱 (A-Z)</option>
+              <option value="owner">業主名稱</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-slate-600 mb-1 font-medium">地區篩選</label>
+            <select id="p1FilterDistrict" class="w-full bg-white border border-[#b2c5d5] rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#aecedd]">
+              <option value="">全部地區</option>
+              <option value="港島">港島區</option>
+              <option value="九龍">九龍區</option>
+              <option value="新界">新界區</option>
+              <option value="離島">離島區</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-slate-600 mb-1 font-medium">樓宇種類</label>
+            <select id="p1FilterType" class="w-full bg-white border border-[#b2c5d5] rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#aecedd]">
+              <option value="">全部種類</option>
+              <option value="私人住宅">私人住宅</option>
+              <option value="居屋">居屋</option>
+              <option value="公屋">公屋</option>
+              <option value="唐樓">唐樓</option>
+              <option value="工商大廈">工商大廈</option>
+              <option value="獨立屋/洋房">獨立屋/洋房</option>
+            </select>
+          </div>
+          <div class="flex items-end">
+            <button id="addPropertyBtn" class="w-full bg-[#aecedd] hover:bg-[#9bc2d4] text-slate-900 py-1.5 px-3 rounded-lg font-semibold text-xs flex items-center justify-center gap-1 transition shadow-xs border border-[#b2c5d5]">
+              <i class="fa-solid fa-plus"></i>
+              <span>新增地點</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div id="propertyList" class="space-y-3"></div>
+    </section>
+
+    <!-- PAGE 2: ROOM SELECTION -->
+    <section id="page2" class="hidden space-y-4">
+      <div id="propertySummaryCard" class="bg-[#b1d9d4] text-slate-900 p-4 rounded-xl shadow-sm border border-[#b2c5d5] space-y-2"></div>
+      <div class="flex items-center justify-between pt-2">
+        <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
+          <i class="fa-solid fa-door-open text-slate-700"></i>
+          <span>位置區域列表</span>
+        </h2>
+        <button id="addRoomBtn" class="bg-[#aecedd] hover:bg-[#9bc2d4] text-slate-900 text-xs px-3 py-1.5 rounded-lg font-semibold flex items-center gap-1 transition border border-[#b2c5d5] shadow-xs">
+          <i class="fa-solid fa-plus"></i>
+          <span>新增位置</span>
+        </button>
+      </div>
+      <div id="roomGrid" class="grid grid-cols-1 gap-3"></div>
+    </section>
+
+    <!-- PAGE 3: CHECKLIST ITEMS 清單版面 -->
+    <section id="page3" class="hidden space-y-4">
+      <!-- 地點/位置區塊 -->
+      <div class="bg-[#b1d9d4] p-3 rounded-xl border border-[#b2c5d5] shadow-xs flex items-center justify-between text-sm">
+        <div class="flex items-center space-x-2 truncate">
+          <span id="p3RoomBadge" class="bg-white/70 text-slate-900 px-2.5 py-0.5 rounded-full font-bold text-xs border border-[#b2c5d5]">客廳</span> 
+          <span id="p3PropName" class="text-slate-700 truncate font-bold text-base md:text-sm">--</span>
+        </div>
+      </div>
+
+      <!-- 新增項目按鈕區塊 -->
+      <div class="bg-cardBg p-3.5 rounded-xl border border-[#b2c5d5] shadow-xs flex items-center justify-between">
+        <span class="font-bold text-slate-800 text-sm">新增項目：</span>
+        <button id="triggerAddCategoryBtn" class="bg-[#aecedd] hover:bg-[#9bc2d4] text-slate-900 px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition border border-[#b2c5d5] shadow-xs">
+          <i class="fa-solid fa-plus"></i>
+        </button>
+      </div>
+
+      <!-- 僅顯示已勾選大項目的動態呈現區域 -->
+      <div id="checklistItemsContainer" class="grid grid-cols-1 gap-3"></div>
+    </section>
+
+    <!-- Printable A4 Excel Area -->
+    <div id="printReportArea" class="hidden print-area">
+      <div class="text-center mb-4">
+        <h1 class="text-2xl font-bold border-b-2 border-black pb-2">樓宇檢測報告</h1>
+      </div>
+      <table id="printMetaTable" class="excel-table mb-4"></table>
+      <table id="printDefectsTable" class="excel-table"></table>
+    </div>
+
+  </main>
+
+  <!-- MODAL: 新增項目彈出視窗（顯示大項目勾選清單 + 下方提示樣式） -->
+  <div id="selectCategoryModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-cardBg rounded-2xl max-w-md w-full shadow-2xl overflow-hidden border border-[#b2c5d5] flex flex-col max-h-[85vh]">
+      <div class="px-5 py-4 bg-headerBg text-slate-900 flex justify-between items-center border-b border-[#b2c5d5] shrink-0">
+        <h3 class="font-bold text-base">新增項目：</h3>
+        <button id="closeSelectCategoryModalBtn" class="text-slate-700 hover:text-slate-900 text-xl"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="p-4 overflow-y-auto space-y-3 flex-1" id="selectCategoryList">
+        <!-- 動態填入大項目勾選清單 -->
+      </div>
+      <div class="p-4 bg-cardBg border-t border-[#b2c5d5] flex gap-2 shrink-0">
+        <button type="button" id="cancelSelectCategoryBtn" class="flex-1 py-2.5 border border-[#b2c5d5] rounded-lg text-slate-700 font-semibold text-sm hover:bg-white transition">取消</button>
+        <button type="button" id="confirmSelectCategoryBtn" class="flex-1 py-2.5 bg-[#aecedd] hover:bg-[#9bc2d4] text-slate-900 rounded-lg font-semibold text-sm shadow-xs transition border border-[#b2c5d5]">確認新增</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Fullscreen Category Modal (全螢幕獨立視窗) -->
+  <div id="categoryModal" class="fixed inset-0 w-screen h-screen bg-appBg z-50 hidden flex flex-col no-print overflow-hidden">
+    <div class="bg-headerBg text-slate-900 px-5 py-3.5 flex justify-between items-center shrink-0 shadow-md border-b border-[#b2c5d5]">
+      <div class="flex items-center space-x-3">
+        <span id="catModalBadge" class="w-7 h-7 rounded-lg bg-[#aecedd] text-slate-900 font-bold text-xs flex items-center justify-center border border-[#b2c5d5]">1</span>
+        <div>
+          <h3 id="catModalTitle" class="font-bold text-base leading-tight">
+            <span id="catModalNameText">檢測項目名稱</span>
+          </h3>
+        </div>
+      </div>
+      <div class="flex items-center space-x-1.5">
+        <button id="openAddSubModalBtn" class="text-slate-600 hover:text-slate-900 p-2 text-lg rounded-lg hover:bg-white transition" title="新增子項目">
+          <i class="fa-regular fa-square-plus text-base"></i>
+        </button>
+        <button id="openDeleteSubModalBtn" class="text-slate-600 hover:text-red-600 p-2 rounded-lg hover:bg-red-100 transition" title="刪除子項目">
+          <i class="fa-solid fa-trash-can text-sm"></i>
+        </button>
+        <button id="closeCatModalBtn" class="text-slate-700 hover:text-slate-900 text-2xl p-1 rounded-lg hover:bg-white/30 transition ml-2">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+    </div>
+
+    <div class="bg-cardBg px-4 pt-1.5 shrink-0 flex items-end justify-between gap-2 overflow-hidden">
+      <div id="catSubTabNav" class="flex space-x-1.5 overflow-x-auto no-scrollbar flex-1 items-end chrome-tab-container"></div>
+      <div class="flex items-center space-x-1.5 shrink-0 pb-1">
+        <button id="openAddProblemModalBtn" class="text-slate-600 hover:text-slate-900 p-2 rounded-lg hover:bg-[#aecedd] transition" title="新增問題">
+          <i class="fa-regular fa-square-plus text-base"></i>
+        </button>
+        <button id="openDeleteProblemModalBtn" class="text-slate-600 hover:text-red-600 p-2 rounded-lg hover:bg-red-100 transition" title="刪除問題">
+          <i class="fa-solid fa-trash-can text-sm"></i>
+        </button>
+      </div>
+    </div>
+
+    <div id="catModalBody" class="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 bg-appBg"></div>
+  </div>
+
+  <!-- SUB-MODAL: 新增子項目 -->
+  <div id="addSubModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-cardBg rounded-2xl max-w-sm w-full shadow-2xl overflow-hidden border border-[#b2c5d5]">
+      <div class="px-5 py-4 bg-headerBg text-slate-900 flex justify-between items-center border-b border-[#b2c5d5]">
+        <h3 class="font-bold text-base">新增子項目</h3>
+        <button id="closeAddSubModalBtn" class="text-slate-700 hover:text-slate-900 text-xl"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <form id="addSubForm" class="p-5 space-y-4">
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">子項目名稱 <span class="text-red-500">*</span></label>
+          <input type="text" id="subCategoryNameInput" required placeholder="例如：鋁窗扇、地腳線..." class="w-full px-3 py-2 bg-white border border-[#b2c5d5] rounded-lg text-sm focus:ring-2 focus:ring-[#aecedd] focus:outline-none">
+        </div>
+        <div class="pt-2 flex gap-2">
+          <button type="button" id="cancelAddSubBtn" class="flex-1 py-2.5 border border-[#b2c5d5] rounded-lg text-slate-700 font-semibold text-sm hover:bg-white transition">取消</button>
+          <button type="submit" class="flex-1 py-2.5 bg-[#aecedd] hover:bg-[#9bc2d4] text-slate-900 rounded-lg font-semibold text-sm shadow-xs transition border border-[#b2c5d5]">確認新增</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- SUB-MODAL: 刪除子項目選擇視窗 -->
+  <div id="deleteSubModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-cardBg rounded-2xl max-w-sm w-full shadow-2xl overflow-hidden border border-[#b2c5d5]">
+      <div class="px-5 py-4 bg-headerBg text-slate-900 flex justify-between items-center border-b border-[#b2c5d5]">
+        <h3 class="font-bold text-base">刪除子項目</h3>
+        <button id="closeDeleteSubModalBtn" class="text-slate-700 hover:text-slate-900 text-xl"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="p-5 space-y-4">
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">請選擇要刪除的子項目 <span class="text-red-500">*</span></label>
+          <select id="deleteSubSelect" class="w-full px-3 py-2 bg-white border border-[#b2c5d5] rounded-lg text-sm focus:ring-2 focus:ring-[#aecedd] focus:outline-none"></select>
+        </div>
+        <div class="pt-2 flex gap-2">
+          <button type="button" id="cancelDeleteSubBtn" class="flex-1 py-2.5 border border-[#b2c5d5] rounded-lg text-slate-700 font-semibold text-sm hover:bg-white transition">取消</button>
+          <button type="button" id="confirmDeleteSubBtn" class="flex-1 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-lg font-semibold text-sm shadow-xs transition border border-red-600">確認刪除</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SUB-MODAL: 新增問題 -->
+  <div id="addProblemModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-cardBg rounded-2xl max-w-sm w-full shadow-2xl overflow-hidden border border-[#b2c5d5]">
+      <div class="px-5 py-4 bg-headerBg text-slate-900 flex justify-between items-center border-b border-[#b2c5d5]">
+        <h3 class="font-bold text-base">新增問題選項</h3>
+        <button id="closeAddProblemModalBtn" class="text-slate-700 hover:text-slate-900 text-xl"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <form id="addProblemForm" class="p-5 space-y-4">
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">問題描述 <span class="text-red-500">*</span></label>
+          <input type="text" id="problemDescInput" required placeholder="例如：表面有輕微刮花..." class="w-full px-3 py-2 bg-white border border-[#b2c5d5] rounded-lg text-sm focus:ring-2 focus:ring-[#aecedd] focus:outline-none">
+        </div>
+        <div class="pt-2 flex gap-2">
+          <button type="button" id="cancelAddProblemBtn" class="flex-1 py-2.5 border border-[#b2c5d5] rounded-lg text-slate-700 font-semibold text-sm hover:bg-white transition">取消</button>
+          <button type="submit" class="flex-1 py-2.5 bg-[#aecedd] hover:bg-[#9bc2d4] text-slate-900 rounded-lg font-semibold text-sm shadow-xs transition border border-[#b2c5d5]">確認新增</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- SUB-MODAL: 刪除問題選項選擇視窗 -->
+  <div id="deleteProblemModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-cardBg rounded-2xl max-w-sm w-full shadow-2xl overflow-hidden border border-[#b2c5d5]">
+      <div class="px-5 py-4 bg-headerBg text-slate-900 flex justify-between items-center border-b border-[#b2c5d5]">
+        <h3 class="font-bold text-base">刪除問題選項</h3>
+        <button id="closeDeleteProblemModalBtn" class="text-slate-700 hover:text-slate-900 text-xl"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="p-5 space-y-4">
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">請選擇要刪除的問題選項 <span class="text-red-500">*</span></label>
+          <select id="deleteProblemSelect" class="w-full px-3 py-2 bg-white border border-[#b2c5d5] rounded-lg text-sm focus:ring-2 focus:ring-[#aecedd] focus:outline-none"></select>
+        </div>
+        <div class="pt-2 flex gap-2">
+          <button type="button" id="cancelDeleteProblemBtn" class="flex-1 py-2.5 border border-[#b2c5d5] rounded-lg text-slate-700 font-semibold text-sm hover:bg-white transition">取消</button>
+          <button type="button" id="confirmDeleteProblemBtn" class="flex-1 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-lg font-semibold text-sm shadow-xs transition border border-red-600">確認刪除</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Add/Edit Property -->
+  <div id="propertyModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-40 hidden flex items-center justify-center p-4">
+    <div class="bg-cardBg rounded-2xl max-w-md w-full shadow-2xl overflow-hidden border border-[#b2c5d5]">
+      <div class="px-5 py-4 bg-headerBg text-slate-900 flex justify-between items-center border-b border-[#b2c5d5]">
+        <h3 id="propModalTitle" class="font-bold text-base">新增地點檢測報告</h3>
+        <button id="closePropModalBtn" class="text-slate-700 hover:text-slate-900 text-xl"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <form id="propForm" class="p-5 space-y-4">
+        <input type="hidden" id="propId">
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">地點 / 屋苑名稱 <span class="text-red-500">*</span></label>
+          <input type="text" id="propName" required placeholder="例如：太古城 觀海台 8座 10樓 A室" class="w-full px-3 py-2 bg-white border border-[#b2c5d5] rounded-lg text-sm focus:ring-2 focus:ring-[#aecedd] focus:outline-none">
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">業主姓名</label>
+            <input type="text" id="propOwner" placeholder="例如：陳大文" class="w-full px-3 py-2 bg-white border border-[#b2c5d5] rounded-lg text-sm focus:ring-2 focus:ring-[#aecedd] focus:outline-none">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">檢測日期 <span class="text-red-500">*</span></label>
+            <input type="date" id="propDate" required class="w-full px-3 py-2 bg-white border border-[#b2c5d5] rounded-lg text-sm focus:ring-2 focus:ring-[#aecedd] focus:outline-none">
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">地區類別</label>
+            <select id="propDistrict" class="w-full px-3 py-2 bg-white border border-[#b2c5d5] rounded-lg text-sm focus:ring-2 focus:ring-[#aecedd] focus:outline-none">
+              <option value="港島">港島區</option>
+              <option value="九龍">九龍區</option>
+              <option value="新界">新界區</option>
+              <option value="離島">離島區</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">樓宇種類</label>
+            <select id="propType" class="w-full px-3 py-2 bg-white border border-[#b2c5d5] rounded-lg text-sm focus:ring-2 focus:ring-[#aecedd] focus:outline-none">
+              <option value="私人住宅">私人住宅</option>
+              <option value="居屋">居屋</option>
+              <option value="公屋">公屋</option>
+              <option value="唐樓">唐樓</option>
+              <option value="工商大廈">工商大廈</option>
+              <option value="獨立屋/洋房">獨立屋/洋房</option>
+            </select>
+          </div>
+        </div>
+        <div class="pt-2 flex gap-2">
+          <button type="button" id="cancelPropModalBtn" class="flex-1 py-2.5 border border-[#b2c5d5] rounded-lg text-slate-700 font-semibold text-sm hover:bg-white transition">取消</button>
+          <button type="submit" class="flex-1 py-2.5 bg-[#aecedd] hover:bg-[#9bc2d4] text-slate-900 rounded-lg font-semibold text-sm shadow-xs transition border border-[#b2c5d5]">儲存資料</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: Add/Edit Room -->
+  <div id="roomModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-40 hidden flex items-center justify-center p-4">
+    <div class="bg-cardBg rounded-2xl max-w-sm w-full shadow-2xl overflow-hidden border border-[#b2c5d5]">
+      <div class="px-5 py-4 bg-headerBg text-slate-900 flex justify-between items-center border-b border-[#b2c5d5]">
+        <h3 id="roomModalTitle" class="font-bold text-base">新增位置區域</h3>
+        <button id="closeRoomModalBtn" class="text-slate-700 hover:text-slate-900 text-xl"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <form id="roomForm" class="p-5 space-y-4">
+        <input type="hidden" id="roomIndex">
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">區域名稱 <span class="text-red-500">*</span></label>
+          <input type="text" id="roomName" required placeholder="例如：玄關/走廊、客廳、主人房..." class="w-full px-3 py-2 bg-white border border-[#b2c5d5] rounded-lg text-sm focus:ring-2 focus:ring-[#aecedd] focus:outline-none">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-600 mb-1.5">快捷選擇常用區域：</label>
+          <div class="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto p-1 bg-white rounded-lg border border-[#b2c5d5]">
+            <button type="button" onclick="setPresetRoom('玄關/走廊')" class="text-xs bg-cardBg hover:bg-[#aecedd] hover:text-slate-900 border border-[#b2c5d5] px-2 py-1 rounded transition">玄關/走廊</button>
+            <button type="button" onclick="setPresetRoom('客廳')" class="text-xs bg-cardBg hover:bg-[#aecedd] hover:text-slate-900 border border-[#b2c5d5] px-2 py-1 rounded transition">客廳</button>
+            <button type="button" onclick="setPresetRoom('飯廳')" class="text-xs bg-cardBg hover:bg-[#aecedd] hover:text-slate-900 border border-[#b2c5d5] px-2 py-1 rounded transition">飯廳</button>
+            <button type="button" onclick="setPresetRoom('主人房')" class="text-xs bg-cardBg hover:bg-[#aecedd] hover:text-slate-900 border border-[#b2c5d5] px-2 py-1 rounded transition">主人房</button>
+            <button type="button" onclick="setPresetRoom('睡房')" class="text-xs bg-cardBg hover:bg-[#aecedd] hover:text-slate-900 border border-[#b2c5d5] px-2 py-1 rounded transition">睡房</button>
+            <button type="button" onclick="setPresetRoom('客房')" class="text-xs bg-cardBg hover:bg-[#aecedd] hover:text-slate-900 border border-[#b2c5d5] px-2 py-1 rounded transition">客房</button>
+            <button type="button" onclick="setPresetRoom('書房')" class="text-xs bg-cardBg hover:bg-[#aecedd] hover:text-slate-900 border border-[#b2c5d5] px-2 py-1 rounded transition">書房</button>
+            <button type="button" onclick="setPresetRoom('衣帽間')" class="text-xs bg-cardBg hover:bg-[#aecedd] hover:text-slate-900 border border-[#b2c5d5] px-2 py-1 rounded transition">衣帽間</button>
+            <button type="button" onclick="setPresetRoom('儲物室/工人房')" class="text-xs bg-cardBg hover:bg-[#aecedd] hover:text-slate-900 border border-[#b2c5d5] px-2 py-1 rounded transition">儲物室/工人房</button>
+            <button type="button" onclick="setPresetRoom('主人浴室')" class="text-xs bg-cardBg hover:bg-[#aecedd] hover:text-slate-900 border border-[#b2c5d5] px-2 py-1 rounded transition">主人浴室</button>
+            <button type="button" onclick="setPresetRoom('客用浴室')" class="text-xs bg-cardBg hover:bg-[#aecedd] hover:text-slate-900 border border-[#b2c5d5] px-2 py-1 rounded transition">客用浴室</button>
+            <button type="button" onclick="setPresetRoom('廚房')" class="text-xs bg-cardBg hover:bg-[#aecedd] hover:text-slate-900 border border-[#b2c5d5] px-2 py-1 rounded transition">廚房</button>
+            <button type="button" onclick="setPresetRoom('露台/工作平台')" class="text-xs bg-cardBg hover:bg-[#aecedd] hover:text-slate-900 border border-[#b2c5d5] px-2 py-1 rounded transition">露台/工作平台</button>
+            <button type="button" onclick="setPresetRoom('冷氣機平台')" class="text-xs bg-cardBg hover:bg-[#aecedd] hover:text-slate-900 border border-[#b2c5d5] px-2 py-1 rounded transition">冷氣機平台</button>
+            <button type="button" onclick="setPresetRoom('貨倉')" class="text-xs bg-cardBg hover:bg-[#aecedd] hover:text-slate-900 border border-[#b2c5d5] px-2 py-1 rounded transition">貨倉</button>
+            <button type="button" onclick="setPresetRoom('車房')" class="text-xs bg-cardBg hover:bg-[#aecedd] hover:text-slate-900 border border-[#b2c5d5] px-2 py-1 rounded transition">車房</button>
+          </div>
+        </div>
+        <div class="pt-2 flex gap-2">
+          <button type="button" id="cancelRoomModalBtn" class="flex-1 py-2.5 border border-[#b2c5d5] rounded-lg text-slate-700 font-semibold text-sm hover:bg-white transition">取消</button>
+          <button type="submit" class="flex-1 py-2.5 bg-[#aecedd] hover:bg-[#9bc2d4] text-slate-900 rounded-lg font-semibold text-sm shadow-xs transition border border-[#b2c5d5]">確認儲存</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL LIGHTBOX: Image Viewer -->
+  <div id="lightboxModal" class="fixed inset-0 bg-black/95 z-50 hidden flex flex-col select-none touch-none no-print">
+    <div class="p-4 flex items-center justify-between text-white bg-gradient-to-b from-black/80 to-transparent">
+      <div class="text-xs text-slate-300">
+        <span id="lbCounter">1 / 1</span>
+        <span class="ml-2 text-slate-500 hidden sm:inline">｜ 雙指/滑鼠滾輪縮放・拖拽平移</span>
+      </div>
+      <div class="flex items-center space-x-3">
+        <button id="lbZoomReset" class="p-2 text-slate-300 hover:text-white hover:bg-white/10 rounded-full transition" title="重設大小">
+          <i class="fa-solid fa-rotate-left"></i>
+        </button>
+        <button id="lbCloseBtn" class="p-2 text-slate-300 hover:text-white hover:bg-white/10 rounded-full transition text-xl">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+    </div>
+    <div id="lbViewport" class="flex-1 relative overflow-hidden flex items-center justify-center cursor-grab active:cursor-grabbing">
+      <button id="lbPrevBtn" class="absolute left-3 top-1/2 -translate-y-1/2 z-20 w-12 h-12 bg-black/40 hover:bg-black/80 text-white rounded-full flex items-center justify-center transition border border-white/20 backdrop-blur-sm">
+        <i class="fa-solid fa-chevron-left text-xl"></i>
+      </button>
+      <div id="lbTransformContainer" class="transition-transform duration-75 ease-out flex items-center justify-center">
+        <img id="lbImage" src="" alt="Zoom preview" class="max-h-[85vh] max-w-[90vw] object-contain shadow-2xl pointer-events-none rounded">
+      </div>
+      <button id="lbNextBtn" class="absolute right-3 top-1/2 -translate-y-1/2 z-20 w-12 h-12 bg-black/40 hover:bg-black/80 text-white rounded-full flex items-center justify-center transition border border-white/20 backdrop-blur-sm">
+        <i class="fa-solid fa-chevron-right text-xl"></i>
+      </button>
+    </div>
+    <div class="p-3 bg-black/80 text-center text-xs text-slate-400">
+      雙擊圖片或點擊重設可還原原始大小
+    </div>
+  </div>
+
+  <!-- JAVASCRIPT LOGIC -->
+  <script>
+    function getRoomOrderWeight(roomName) {
+      const name = roomName || '';
+      if (name.includes('玄關') || name.includes('走廊')) return 10;
+      if (name.includes('客廳') || name.includes('飯廳') || name.includes('客飯廳')) return 20;
+      if (name.includes('房') || name.includes('衣帽間')) return 30;
+      if (name.includes('廁') || name.includes('浴室') || name.includes('洗手')) return 40;
+      if (name.includes('廚')) return 50;
+      if (name.includes('露台') || name.includes('工作平台') || name.includes('平台') && !name.includes('冷氣')) return 60;
+      if (name.includes('冷氣')) return 70;
+      if (name.includes('貨倉') || name.includes('車房')) return 80;
+      return 999;
+    }
+
+    function sortRoomsArray(rooms) {
+      return rooms.sort((a, b) => {
+        const weightA = getRoomOrderWeight(a.name);
+        const weightB = getRoomOrderWeight(b.name);
+        if (weightA !== weightB) {
+          return weightA - weightB;
+        }
+        return a.name.localeCompare(b.name, 'zh-HK');
+      });
+    }
+
+    const DEFAULT_HK_ROOMS = [
+      '玄關/走廊', '客廳', '飯廳', '主人房', '睡房', '主人浴室', '客用浴室', '廚房', '露台/工作平台'
+    ];
+
+    // 標準大項目定義
+    const DEFAULT_CATEGORIES = [
+      {
+        id: 'paint_plaster',
+        name: '天花 · 牆身',
+        subCategories: [
+          {
+            id: 'ceiling',
+            name: '天花',
+            method: '目測 1-2m、平整度測試、裂縫檢測、錘擊試驗、濕度測試、陽/陰角測試',
+            items: [
+              '妥當', '油漆色差（牆身與局部修補處顏色不一）', '油漆淚痕（流挂或不均勻淚狀痕跡）', '油漆透底（底漆未遮蓋或出現透底現象）', '表面有污漬或手印殘留', '油漆出界或邊界污染周邊飾面', '油漆表面有明顯掃痕或滾筒痕', '油漆起泡或剝落', '天花凹凸不平或有沙眼', '砂紙痕跡明顯未打磨平整', '天花氣孔過多', '空鼓（敲擊天花有空洞回音）', '裂痕（沿梁位的裂縫）', '天花不平坦或垂直度超標', '天花板不平坦或有下陷', '明角或暗角未能成直角', '天花出現水漬、受潮或發霉'
+            ]
+          },
+          {
+            id: 'wall',
+            name: '牆身',
+            method: '目測 1-2m、平整度測試、裂縫檢測、錘擊試驗、濕度測試、陽/陰角測試',
+            items: [
+              '妥當', '油漆色差（牆身與局部修補處顏色不一）', '油漆淚痕（流挂或不均勻淚狀痕跡）', '油漆透底（底漆未遮蓋或出現透底現象）', '表面有污漬或手印殘留', '油漆出界或邊界污染周邊飾面', '牆角邊界蠕動或批盪線條不直', '油漆表面有明顯掃痕或滾筒痕', '油漆起泡或剝落', '開孔周邊（如插座旁）批盪不平滑', '牆面凹凸不平或有沙眼', '砂紙痕跡明顯未打磨平整', '牆面氣孔過多', '空鼓（敲擊牆身有空洞回音）', '裂痕（集中於門角、窗角或結構交接處）', '牆身不平坦或垂直度超標', '明角或暗角未能成直角', '牆身出現水漬、受潮或發霉', '外牆批盪是否有裂痕、剝落或空鼓'
+            ]
+          }
+        ]
+      },
+      {
+        id: 'floor_skirting',
+        name: '木地板 · 木地腳線',
+        subCategories: [
+          {
+            id: 'wooden_floor',
+            name: '木地板',
+            method: '目測 1.5m、平整度測試、測量罅縫、腳踏試驗',
+            items: [
+              '妥當', '明顯色差、斑駁或局部發霉', '高低不一、起級或受潮變形拱起', '表面崩爛、嚴重花痕或裂痕', '木地板踩踏鬆脫或有下陷感', '地板拼接罅隙過大或不均勻', '踩踏時發出異常異響（吱吱聲）', '收邊條脫落或收口不美觀'
+            ]
+          },
+          {
+            id: 'skirting',
+            name: '木地腳線',
+            method: '目測 1.5m、平整度測試、測量罅縫、腳踏試驗',
+            items: [
+              '妥當', '地腳線與木地板色差明顯', '地腳線與牆身之間罅隙過大', '釘孔未妥善填補或執色不佳', '表面污漬、崩裂、花痕或裂痕', '夾口接駁位出現起級或高低不平', '地腳線受潮發霉或離膠鬆脫', '安裝不牢固、不整齊'
+            ]
+          }
+        ]
+      },
+      {
+        id: 'stone_tiles',
+        name: '天然石材 · 飾面磚',
+        subCategories: [
+          {
+            id: 'natural_stone',
+            name: '天然石材',
+            method: '天然石材 - 目測 1-1.5m、平整度測試、石縫檢測、錘擊試驗',
+            items: [
+              '妥當', '地台石有崩爛、花痕或裂痕', '地台石有難除污漬或滲色', '牆身石有崩爛、花痕或裂痕', '牆身石有污漬或水漬殘留', '台面石有崩爛、花痕或裂痕', '台面石有污漬或膠水痕跡', '掃口或唧膠脫落、欠缺', '夾口有利邊、利角或起級', '窗台石底與牆身夾口有明顯隙孔', '地台或牆身不平直、斜水不足', '空鼓（敲擊石材有空洞聲）', '門檻石夾口隙孔未封好'
+            ]
+          },
+          {
+            id: 'wall_tiles',
+            name: '牆磚',
+            items: [
+              '妥當', '牆磚表面有污漬或水泥殘留', '掃口粉或唧膠脫落、不均或欠缺', '夾口利邊、利角或磚面起級', '空鼓（敲擊牆磚呈空心聲）', '牆磚不垂直、水平線不妥或拼花不對位', '牆磚崩角或出現裂紋'
+            ]
+          },
+          {
+            id: 'floor_tiles',
+            name: '地磚',
+            method: '地磚 - 目測 1-1.5m、平整度測試、瓦縫檢測、錘擊試驗',
+            items: [
+              '妥當', '地磚表面有污漬或刮花', '掃口或唧膠脫落、發霉或欠缺', '地磚鋪貼起級、高低不平', '地磚空鼓或踩踏鬆動', '地磚崩角或出現裂紋', '地台排水斜度不足導致積水'
+            ]
+          }
+        ]
+      },
+      {
+        id: 'window_door_glass_fence',
+        name: '鋁窗 · 鋁門 · 玻璃 · 圍欄',
+        subCategories: [
+          {
+            id: 'sub_window',
+            name: '鋁窗',
+            method: '鋁窗 - 目測 0.5m',
+            items: [
+              '妥當', '窗框有污漬或保護膜未撕', '窗框有崩爛、花痕或凹陷', '安裝正確並穩固（安全檢查）', '不能正常順暢開關或卡住', '玻璃有裂痕、內部氣泡或刮花', '鋁窗四周橡膠密封條破損或老化', '外框唧膠脫落、漏打或掃口有罅隙', '窗鎖或手柄無法正常上鎖或鬆脫', '下雨天或灑水測試出現滲水'
+            ]
+          },
+          {
+            id: 'sub_aluminum_door',
+            name: '鋁門',
+            method: '鋁門 - 目測 0.5m',
+            items: [
+              '妥當', '鋁門表面有污漬或花痕', '鋁門框有崩裂、變形或花痕', '安裝正確且結構穩固', '開關測試卡滯、不能正常開關', '鋁門四周膠條破損或脫落', '唧膠脫落、掃口有罅隙', '門鎖、把手無法正常上鎖', '壓條變形、路軌變形或開關發出摩擦聲', '地鉸或掩門鉸鬆動'
+            ]
+          },
+          {
+            id: 'sub_glass',
+            name: '玻璃',
+            method: '玻璃 - 目測 1m & 開關測試',
+            items: [
+              '妥當', '玻璃表面有頑固污漬、膠漬', '安裝正確並穩固無鬆動', '玻璃內部有裂痕、崩邊或氣泡', '周邊唧膠脫落、不均或有罅隙', '未安裝合適規格或厚度的玻璃類別', '玻璃反射變形（水波紋嚴重）'
+            ]
+          },
+          {
+            id: 'sub_fence',
+            name: '圍欄',
+            method: '圍欄 - 目測 0.5m',
+            items: [
+              '妥當', '露台玻璃圍欄表面有污漬', '金屬欄杆崩爛、花痕、凹凸或焗漆剝落', '露台玻璃圍欄安裝穩固度不足', '圍欄唧膠脫落、掃口有罅隙', '露台玻璃圍欄安裝高度不符標準', '圍欄底座附近牆身出現水漬或滲水', '夾口有利邊、利角或起級', '唧膠出現氣泡、鬆脫或老化', '螺絲及五金配件鬆脫、生鏽或缺漏', '外牆瓦仔掃口有罅隙、空鼓或鬆脫'
+            ]
+          }
+        ]
+      },
+      {
+        id: 'kitchen_bathroom_cabinets',
+        name: '廚房 · 浴室組合櫃',
+        subCategories: [
+          {
+            id: 'cabinet_general',
+            name: '組合櫃問題',
+            method: '目測 0.5m、門鉸/路軌測試、層板的穩固性測試',
+            items: [
+              '妥當', '組合櫃表面崩爛或花痕', '櫃身內外有污漬或膠水痕跡', '櫃門不平衡、高低不一或傾斜', '內部層板不平或承托銷缺失', '五金配件（拉手、掛碼）缺失', '櫃門與櫃身之間的罅隙過大或不均', '櫃門鉸鬆脫、開關異響', '櫃桶推拉不暢順、卡滯', '櫃桶路軌變曲或變形', '五金配件生鏽、氧化或損壞', '櫃門與牆身收口膠邊鬆脫或發霉', '櫃底藏有裝修垃圾未清理', '地櫃腳線安裝不穩或鬆脫', '鏡櫃鏡面甩水銀或邊緣黑化'
+            ]
+          }
+        ]
+      },
+      {
+        id: 'door_frame',
+        name: '木門 · 門框 · 封口線',
+        subCategories: [
+          {
+            id: 'fire_door',
+            name: '防火門',
+            method: '防火門 - 目測 1m、平整度測試、開關測試、自動關門器測試',
+            items: [
+              '妥當', '門面崩爛、花痕、裂痕或明顯色差', '門扇安裝不平行或歪斜', '門扇與四周門框隙縫過大', '門底與地板磨擦碰撞', '自動關門器力度過大或無法完全關門', '防火膨脹條及門底防煙條鬆脫損壞', '門框夾口不平或收口欠佳', '封口線夾口不平或有大罅隙', '門鉸缺螺絲或螺絲鬆脫', '防盜鏈、門鎖配件鬆脫', '安裝釘孔未妥善填補或欠執色', '門鉸及螺絲有污漬或生鏽', '門扇表面有污漬殘留', '防盜眼模糊不清、無法看清門外', '門鈴音量不足或按鈕失靈'
+            ]
+          },
+          {
+            id: 'single_door',
+            name: '單掩木門',
+            items: [
+              '妥當', '木門崩爛、花痕、裂痕或色差', '門扇安裝不平行', '門與四周隙縫過大', '關門時與地板磨擦', '門框夾口不平', '封口線夾口不平', '門吸/門阻安裝位置錯誤或失效', '門鉸缺螺絲或螺絲鬆脫', '釘窿欠執色或未修平', '門鉸及螺絲有污漬或生鏽', '門面有污漬殘留'
+            ]
+          },
+          {
+            id: 'sliding_door',
+            name: '趟門',
+            items: [
+              '妥當', '趟門崩爛、花痕、裂痕或污漬', '趟門路軌變形、開關時有摩擦聲響', '趟門路軌藏有垃圾或灰塵', '門阻安裝位置錯誤', '膠邊密封墊鬆脫、老化或欠缺'
+            ]
+          },
+          {
+            id: 'sliding_glass_door',
+            name: '趟門玻璃',
+            items: [
+              '妥當', '玻璃崩爛、花痕、氣泡或污漬', '玻璃是否有裂痕或隱性崩角', '路軌有垃圾或運作不順', '門阻安裝位置錯誤', '玻璃邊鋁質封口線缺漏', '玻璃邊橡膠條鬆脫或欠缺'
+            ]
+          },
+          {
+            id: 'door_lock',
+            name: '門鎖',
+            items: [
+              '妥當', '門鎖舌與鎖扣片不對位', '鎖具故障、無法順利鎖上', '螺絲及五金配件鬆脫', '鎖面有污漬或生鏽', '智能門鎖感應或密碼輸入異常'
+            ]
+          }
+        ]
+      },
+      {
+        id: 'sanitary_ware',
+        name: '衛生潔具',
+        subCategories: [
+          {
+            id: 'toilet_sub',
+            name: '坐廁',
+            method: '目測 0.5m、穩固性測試、蓄水測試、撥水測試、射水測試',
+            items: [
+              '妥當', '坐廁表面有污漬或黃斑', '坐廁安裝欠穩固、搖晃鬆脫', '陶瓷表面有花痕或崩爛', '喉管入牆位欠收口或唧膠', '底座或駁口處出現滲漏', '水箱注水時間過長、漏水或沒有水', '座廁底部密封膠鬆脫'
+            ]
+          },
+          {
+            id: 'bathtub_sub',
+            name: '浴缸',
+            method: '目測 0.5m、穩固性測試、蓄水測試、撥水測試、射水測試',
+            items: [
+              '妥當', '浴缸表面污漬或刮花', '浴缸裙邊欠唧膠或收口不妥', '浴缸底部或內部藏有裝修垃圾', '排水渠管接駁處滲漏', '去水淤塞、去水緩慢或倒流', '擋水條過長、過短或崩爛'
+            ]
+          },
+          {
+            id: 'screen_sub',
+            name: '浴屏',
+            method: '目測 0.5m、穩固性測試、蓄水測試、撥水測試、射水測試',
+            items: [
+              '妥當', '浴屏玻璃與牆身收口不妥、漏打膠', '浴屏玻璃有污漬或水漬', '浴屏趟門/掩門開關不順或滲漏'
+            ]
+          },
+          {
+            id: 'basin_sub',
+            name: '浴室洗手盆',
+            method: '目測 0.5m、穩固性測試、蓄水測試、撥水測試、射水測試',
+            items: [
+              '妥當', '洗手盆安裝欠穩固、用手按壓會鬆動', '牆身或檯面收口不妥、欠唧膠', '盆面有污漬、花痕', '洗手盆底隔氣管接駁位漏水', '去水淤塞、去水緩慢或倒流'
+            ]
+          },
+          {
+            id: 'shower_tap_sub',
+            name: '花灑龍頭',
+            method: '目測 0.5m、穩固性測試、蓄水測試、撥水測試、射水測試',
+            items: [
+              '妥當', '花灑龍頭表面刮花或水漬', '開關漏水、來水不正常或冷熱水調校異常', '水壓不足、不穩定'
+            ]
+          },
+          {
+            id: 'basin_tap_sub',
+            name: '洗手盆龍頭',
+            method: '目測 0.5m、穩固性測試、蓄水測試、撥水測試、射水測試',
+            items: [
+              '妥當', '龍頭表面刮花或鍍層受損', '開關漏水、接駁處滲水或冷熱水調校異常', '水壓不足、不穩定', '喉管接駁不牢固'
+            ]
+          },
+          {
+            id: 'accessories_sub',
+            name: '浴室配件',
+            method: '目測 0.5m、穩固性測試、開關測試',
+            items: [
+              '妥當', '毛巾架、紙巾架安裝鬆脫', '浴簾路軌不順或配件刮花、甩色', '去水口排水速度慢', '地台去水口不夠傾斜，有積水'
+            ]
+          }
+        ]
+      },
+      {
+        id: 'kitchen_sanitary_ware',
+        name: '廚房潔具',
+        subCategories: [
+          {
+            id: 'sink_tap_sub',
+            name: '星盆龍頭',
+            method: '目測 0.5m、穩固性測試、蓄水測試、撥水測試、射水測試',
+            items: [
+              '妥當',
+              '龍頭表面刮花、水漬或鍍層受損',
+              '開關漏水、接駁處滲水或冷熱水調校異常',
+              '水壓不足、不穩定',
+              '喉管接駁不牢固',
+              '廚房星盆/龍頭搖晃鬆動',
+              '抽拉式龍頭軟管拉伸不順或無法回彈',
+              '起泡器/花灑頭出水模式切換失靈或堵塞',
+              '龍頭轉動軸心過緊或卡滯',
+              '星盆底瀝水籃/去水隔篩變形或破損'
+            ]
+          }
+        ]
+      },
+      {
+        id: 'appliances',
+        name: '家電',
+        subCategories: [
+          {
+            id: 'appliances_general',
+            name: '家電問題',
+            method: '目測、開關測試、電流測試、紅外線探測器測試', 
+            items: [
+              '妥當', '外殼污漬、花痕、凹陷或崩爛', '通電後功能失靈、無法啟動', '運作時出現漏水或冷凝水倒流', '運作時散發異味或異常噪音', '家電與周邊櫃體收口不妥當', '雪櫃門膠邊鬆脫或密合不良', '抽油煙機排氣喉安裝不妥或漏煙', '電掣箱接線不整齊，標示不清楚', '漏電斷路器（RCD）不正常', '插座不正常未能通電', '燈掣開關不正常', '插座及燈掣面板安裝不牢固、水平不平'
+            ]
+          }
+        ]
+      },
+      {
+        id: 'ac',
+        name: '冷氣',
+        subCategories: [
+          {
+            id: 'ac_general',
+            name: '冷氣問題',
+            method: '目測、開關測試、電流測試', 
+            items: [
+              '妥當', '冷氣機平台或機位安裝不穩固', '冷氣機去水管安裝不正確、有堵塞', '冷氣管穿牆位置密封差、有孔', '冷氣機電源插座或位置錯誤'
+            ]
+          }
+        ]
+      },
+      {
+        id: 'other',
+        name: '其他',
+        subCategories: [
+          {
+            id: 'other_general',
+            name: '其他問題',
+            items: [
+              '妥當', '門鐘不正常未能運作', '大門對講系統不正常未能運作', '信箱鎖匙及開關不正常'
+            ]
+          }
+        ]
+      }
+    ];
+
+    // 依據不同區域名稱對應預設勾選大項目的對照表
+    function getDefaultCategoryIdsForRoom(roomName) {
+      const name = roomName || '';
+      
+      // 1. 玄關/走廊
+      if (name.includes('玄關') || name.includes('走廊')) {
+        return ['paint_plaster', 'floor_skirting', 'stone_tiles', 'door_frame', 'appliances', 'other'];
+      }
+      // 2. 客廳、飯廳
+      if (name.includes('客廳') || name.includes('飯廳') || name.includes('客飯廳')) {
+        return ['paint_plaster', 'floor_skirting', 'stone_tiles', 'window_door_glass_fence', 'kitchen_bathroom_cabinets', 'door_frame', 'appliances', 'ac'];
+      }
+      // 3. 主人房、睡房、客房、書房、衣帽間、儲物室/工人房
+      if (name.includes('房') || name.includes('衣帽間') || name.includes('儲物室')) {
+        return ['paint_plaster', 'floor_skirting', 'stone_tiles', 'window_door_glass_fence', 'kitchen_bathroom_cabinets', 'door_frame', 'appliances', 'ac'];
+      }
+      // 4. 主人浴室、客用浴室
+      if (name.includes('廁') || name.includes('浴室') || name.includes('洗手')) {
+        return ['paint_plaster', 'floor_skirting', 'stone_tiles', 'window_door_glass_fence', 'kitchen_bathroom_cabinets', 'door_frame', 'sanitary_ware', 'appliances'];
+      }
+      // 5. 廚房 (已明確包含廚房潔具 kitchen_sanitary_ware)
+      if (name.includes('廚')) {
+        return ['paint_plaster', 'floor_skirting', 'stone_tiles', 'window_door_glass_fence', 'kitchen_bathroom_cabinets', 'door_frame', 'kitchen_sanitary_ware', 'appliances', 'ac'];
+      }
+      // 6. 露台/工作平台、冷氣機平台
+      if (name.includes('露台') || name.includes('工作平台') || (name.includes('平台') && !name.includes('冷氣'))) {
+        return ['paint_plaster', 'floor_skirting', 'stone_tiles', 'window_door_glass_fence', 'door_frame', 'appliances'];
+      }
+      if (name.includes('冷氣機平台')) {
+        return ['paint_plaster', 'floor_skirting', 'stone_tiles', 'window_door_glass_fence', 'door_frame', 'appliances'];
+      }
+      // 7. 貨倉、車房
+      if (name.includes('貨倉') || name.includes('車房')) {
+        return ['paint_plaster', 'floor_skirting', 'stone_tiles', 'window_door_glass_fence', 'kitchen_bathroom_cabinets', 'door_frame', 'appliances', 'ac', 'other'];
+      }
+
+      // 預設 fallback
+      return ['paint_plaster', 'floor_skirting', 'door_frame', 'appliances'];
+    }
+
+    const INITIAL_PROPERTIES = [
+      {
+        id: 'prop-1',
+        name: '太古城 觀海台 8座 10樓 A室',
+        owner: '陳大文',
+        date: '2026-10-15',
+        district: '港島',
+        type: '私人住宅',
+        categories: JSON.parse(JSON.stringify(DEFAULT_CATEGORIES)),
+        rooms: [
+          { name: '客廳', defects: {}, selectedCategories: getDefaultCategoryIdsForRoom('客廳') },
+          { name: '主人房', defects: {}, selectedCategories: getDefaultCategoryIdsForRoom('主人房') },
+          { name: '廚房', defects: {}, selectedCategories: getDefaultCategoryIdsForRoom('廚房') },
+          { name: '主人浴室', defects: {}, selectedCategories: getDefaultCategoryIdsForRoom('主人浴室') }
+        ]
+      },
+      {
+        id: 'prop-2',
+        name: '黃埔花園 2期 3座 05樓 B室',
+        owner: '張小姐',
+        date: '2026-10-20',
+        district: '九龍',
+        type: '私人住宅',
+        categories: JSON.parse(JSON.stringify(DEFAULT_CATEGORIES)),
+        rooms: DEFAULT_HK_ROOMS.map(r => ({ 
+          name: r, 
+          defects: {}, 
+          selectedCategories: getDefaultCategoryIdsForRoom(r) 
+        }))
+      }
+    ];
+
+    // STATE MANAGEMENT
+    let savedDataRaw = localStorage.getItem('hk_building_reports');
+    let properties = savedDataRaw ? JSON.parse(savedDataRaw) : JSON.parse(JSON.stringify(INITIAL_PROPERTIES));
+    
+    // 檢查並進行資料自動升級（確保現有廚房記錄也能自動帶入廚房潔具）
+    properties.forEach(p => {
+      p.categories = JSON.parse(JSON.stringify(DEFAULT_CATEGORIES));
+      if (p.rooms) {
+        p.rooms.forEach(r => {
+          if (!r.selectedCategories || r.selectedCategories.length === 0) {
+            r.selectedCategories = getDefaultCategoryIdsForRoom(r.name);
+          } else if (r.name.includes('廚') && !r.selectedCategories.includes('kitchen_sanitary_ware')) {
+            r.selectedCategories.push('kitchen_sanitary_ware');
+          }
+        });
+      }
+    });
+    localStorage.setItem('hk_building_reports', JSON.stringify(properties));
+
+    let currentPropId = null;
+    let currentRoomIndex = null;
+    let activeCatIndex = null;
+    let activeSubTabId = null;
+
+    // DOM REFERENCES
+    const page1 = document.getElementById('page1');
+    const page2 = document.getElementById('page2');
+    const page3 = document.getElementById('page3');
+    const navBackBtn = document.getElementById('navBackBtn');
+    const headerTitle = document.getElementById('headerTitle');
+    const page2PrintBtn = document.getElementById('page2PrintBtn');
+
+    const backupBtn = document.getElementById('backupBtn');
+    const restoreBtn = document.getElementById('restoreBtn');
+    const restoreInput = document.getElementById('restoreInput');
+
+    const p1Search = document.getElementById('p1Search');
+    const p1ResetBtn = document.getElementById('p1ResetBtn');
+    const p1Sort = document.getElementById('p1Sort');
+    const p1FilterDistrict = document.getElementById('p1FilterDistrict');
+    const p1FilterType = document.getElementById('p1FilterType');
+    const propertyList = document.getElementById('propertyList');
+    const addPropertyBtn = document.getElementById('addPropertyBtn');
+
+    const propertyModal = document.getElementById('propertyModal');
+    const propForm = document.getElementById('propForm');
+    const propModalTitle = document.getElementById('propModalTitle');
+    const closePropModalBtn = document.getElementById('closePropModalBtn');
+    const cancelPropModalBtn = document.getElementById('cancelPropModalBtn');
+
+    const propertySummaryCard = document.getElementById('propertySummaryCard');
+    const roomGrid = document.getElementById('roomGrid');
+    const addRoomBtn = document.getElementById('addRoomBtn');
+
+    const roomModal = document.getElementById('roomModal');
+    const roomForm = document.getElementById('roomForm');
+    const roomModalTitle = document.getElementById('roomModalTitle');
+    const closeRoomModalBtn = document.getElementById('closeRoomModalBtn');
+    const cancelRoomModalBtn = document.getElementById('cancelRoomModalBtn');
+
+    const p3RoomBadge = document.getElementById('p3RoomBadge');
+    const p3PropName = document.getElementById('p3PropName');
+    const checklistItemsContainer = document.getElementById('checklistItemsContainer');
+    const triggerAddCategoryBtn = document.getElementById('triggerAddCategoryBtn');
+
+    // 勾選大項目彈出視窗元素
+    const selectCategoryModal = document.getElementById('selectCategoryModal');
+    const closeSelectCategoryModalBtn = document.getElementById('closeSelectCategoryModalBtn');
+    const cancelSelectCategoryBtn = document.getElementById('cancelSelectCategoryBtn');
+    const confirmSelectCategoryBtn = document.getElementById('confirmSelectCategoryBtn');
+    const selectCategoryList = document.getElementById('selectCategoryList');
+
+    const categoryModal = document.getElementById('categoryModal');
+    const closeCatModalBtn = document.getElementById('closeCatModalBtn');
+    const catModalBadge = document.getElementById('catModalBadge');
+    const catModalNameText = document.getElementById('catModalNameText');
+    const catSubTabNav = document.getElementById('catSubTabNav');
+    const catModalBody = document.getElementById('catModalBody');
+    const openAddSubModalBtn = document.getElementById('openAddSubModalBtn');
+    const openDeleteSubModalBtn = document.getElementById('openDeleteSubModalBtn');
+    const openAddProblemModalBtn = document.getElementById('openAddProblemModalBtn');
+    const openDeleteProblemModalBtn = document.getElementById('openDeleteProblemModalBtn');
+
+    const addSubModal = document.getElementById('addSubModal');
+    const closeAddSubModalBtn = document.getElementById('closeAddSubModalBtn');
+    const cancelAddSubBtn = document.getElementById('cancelAddSubBtn');
+    const addSubForm = document.getElementById('addSubForm');
+    const subCategoryNameInput = document.getElementById('subCategoryNameInput');
+
+    const deleteSubModal = document.getElementById('deleteSubModal');
+    const closeDeleteSubModalBtn = document.getElementById('closeDeleteSubModalBtn');
+    const cancelDeleteSubBtn = document.getElementById('cancelDeleteSubBtn');
+    const confirmDeleteSubBtn = document.getElementById('confirmDeleteSubBtn');
+    const deleteSubSelect = document.getElementById('deleteSubSelect');
+
+    const addProblemModal = document.getElementById('addProblemModal');
+    const closeAddProblemModalBtn = document.getElementById('closeAddProblemModalBtn');
+    const cancelAddProblemBtn = document.getElementById('cancelAddProblemBtn');
+    const addProblemForm = document.getElementById('addProblemForm');
+    const problemDescInput = document.getElementById('problemDescInput');
+
+    const deleteProblemModal = document.getElementById('deleteProblemModal');
+    const closeDeleteProblemModalBtn = document.getElementById('closeDeleteProblemModalBtn');
+    const cancelDeleteProblemBtn = document.getElementById('cancelDeleteProblemBtn');
+    const confirmDeleteProblemBtn = document.getElementById('confirmDeleteProblemBtn');
+    const deleteProblemSelect = document.getElementById('deleteProblemSelect');
+
+    const lightboxModal = document.getElementById('lightboxModal');
+    const lbViewport = document.getElementById('lbViewport');
+    const lbTransformContainer = document.getElementById('lbTransformContainer');
+    const lbImage = document.getElementById('lbImage');
+    const lbCloseBtn = document.getElementById('lbCloseBtn');
+    const lbPrevBtn = document.getElementById('lbPrevBtn');
+    const lbNextBtn = document.getElementById('lbNextBtn');
+    const lbCounter = document.getElementById('lbCounter');
+    const lbZoomReset = document.getElementById('lbZoomReset');
+
+    function saveData() {
+      try {
+        localStorage.setItem('hk_building_reports', JSON.stringify(properties));
+        return true;
+      } catch (e) {
+        alert('儲存數據時發生錯誤：' + e.message);
+        return false;
+      }
+    }
+
+    function showPage(pageNumber) {
+      page1.classList.add('hidden');
+      page2.classList.add('hidden');
+      page3.classList.add('hidden');
+      page2PrintBtn.classList.add('hidden');
+
+      if (pageNumber === 1) {
+        page1.classList.remove('hidden');
+        navBackBtn.classList.add('hidden');
+        backupBtn.classList.remove('hidden');
+        restoreBtn.classList.remove('hidden');
+        headerTitle.textContent = '樓宇檢測報告';
+        currentPropId = null;
+        currentRoomIndex = null;
+        renderPage1();
+      } else if (pageNumber === 2) {
+        page2.classList.remove('hidden');
+        navBackBtn.classList.remove('hidden');
+        page2PrintBtn.classList.remove('hidden');
+        backupBtn.classList.add('hidden');
+        restoreBtn.classList.add('hidden');
+        headerTitle.textContent = '檢測位置選單';
+        renderPage2();
+      } else if (pageNumber === 3) {
+        page3.classList.remove('hidden');
+        navBackBtn.classList.remove('hidden');
+        backupBtn.classList.add('hidden');
+        restoreBtn.classList.add('hidden');
+        headerTitle.textContent = '檢測項目清單';
+        renderPage3();
+      }
+    }
+
+    navBackBtn.onclick = () => {
+      if (!page3.classList.contains('hidden')) {
+        showPage(2);
+      } else if (!page2.classList.contains('hidden')) {
+        showPage(1);
+      }
+    };
+
+    function renderPage1() {
+      let filtered = [...properties];
+      const searchTxt = p1Search.value.trim().toLowerCase();
+      if (searchTxt) {
+        filtered = filtered.filter(p => 
+          p.name.toLowerCase().includes(searchTxt) ||
+          p.owner.toLowerCase().includes(searchTxt) ||
+          p.district.toLowerCase().includes(searchTxt)
+        );
+      }
+      const dist = p1FilterDistrict.value;
+      if (dist) filtered = filtered.filter(p => p.district === dist);
+      const type = p1FilterType.value;
+      if (type) filtered = filtered.filter(p => p.type === type);
+
+      const sortVal = p1Sort.value;
+      filtered.sort((a, b) => {
+        if (sortVal === 'date-desc') return new Date(b.date) - new Date(a.date);
+        if (sortVal === 'date-asc') return new Date(a.date) - new Date(b.date);
+        if (sortVal === 'name') return a.name.localeCompare(b.name, 'zh-HK');
+        if (sortVal === 'owner') return (a.owner || '').localeCompare(b.owner || '', 'zh-HK');
+        return 0;
+      });
+
+      propertyList.innerHTML = '';
+      if (filtered.length === 0) {
+        propertyList.innerHTML = `
+          <div class="bg-cardBg p-8 text-center rounded-xl border border-[#b2c5d5] text-slate-500 space-y-2">
+            <i class="fa-solid fa-folder-open text-4xl text-[#b2c5d5]"></i>
+            <p class="text-sm">找不到符合條件的檢測地點記錄</p>
+          </div>
+        `;
+        return;
+      }
+
+      filtered.forEach(p => {
+        let totalDefects = 0;
+        p.rooms.forEach(r => {
+          if (r.defects) {
+            Object.values(r.defects).forEach(d => {
+              if (d.checked || (d.photos && d.photos.length > 0)) totalDefects++;
+            });
+          }
+        });
+
+        const card = document.createElement('div');
+        card.className = 'bg-cardBg p-4 rounded-xl border border-[#b2c5d5] shadow-xs hover:shadow-md transition cursor-pointer flex flex-col justify-between space-y-3 group';
+        card.onclick = () => {
+          currentPropId = p.id;
+          showPage(2);
+        };
+
+        card.innerHTML = `
+          <div class="flex justify-between items-start">
+            <div class="space-y-1">
+              <div class="flex items-center gap-2">
+                <span class="bg-white text-slate-700 font-semibold px-2 py-0.5 rounded text-xs border border-[#b2c5d5]">${p.district}</span>
+                <span class="bg-[#aecedd]/50 text-slate-800 font-semibold px-2 py-0.5 rounded text-xs border border-[#b2c5d5]">${p.type}</span>
+              </div>
+              <h3 class="font-bold text-slate-800 group-hover:text-slate-900 transition text-base">${p.name}</h3>
+            </div>
+            <div class="flex items-center space-x-1 shrink-0 no-print" onclick="event.stopPropagation()">
+              <button onclick="openEditPropertyModal('${p.id}')" class="text-slate-600 hover:text-slate-900 p-2 rounded-lg hover:bg-[#aecedd] transition" title="修改地點">
+                <i class="fa-solid fa-pen-to-square text-base"></i>
+              </button>
+              <button onclick="deleteProperty('${p.id}')" class="text-slate-600 hover:text-red-600 p-2 rounded-lg hover:bg-red-100 transition" title="刪除地點">
+                <i class="fa-solid fa-trash-can text-base"></i>
+              </button>
+            </div>
+          </div>
+          <div class="flex items-center justify-between text-xs text-slate-600 pt-2 border-t border-[#b2c5d5]/50">
+            <div class="flex items-center space-x-3">
+              <span><i class="fa-solid fa-user mr-1 text-slate-500"></i>${p.owner || '未提供業主'}</span>
+              <span><i class="fa-solid fa-calendar-day mr-1 text-slate-500"></i>${p.date}</span>
+            </div>
+            <span class="font-medium text-slate-700 bg-white px-2 py-1 rounded-md border border-[#b2c5d5]">
+              <i class="fa-solid fa-triangle-exclamation text-amber-600 mr-1"></i>問題: ${totalDefects} 項
+            </span>
+          </div>
+        `;
+        propertyList.appendChild(card);
+      });
+    }
+
+    [p1Search, p1Sort, p1FilterDistrict, p1FilterType].forEach(el => {
+      el.onchange = renderPage1;
+      el.onkeyup = renderPage1;
+    });
+
+    p1ResetBtn.onclick = () => {
+      p1Search.value = '';
+      p1Sort.value = 'date-desc';
+      p1FilterDistrict.value = '';
+      p1FilterType.value = '';
+      renderPage1();
+    };
+
+    addPropertyBtn.onclick = () => {
+      propForm.reset();
+      document.getElementById('propId').value = '';
+      document.getElementById('propDate').valueAsDate = new Date();
+      propModalTitle.textContent = '新增地點檢測報告';
+      propertyModal.classList.remove('hidden');
+    };
+
+    function openEditPropertyModal(id) {
+      const p = properties.find(item => item.id === id);
+      if (!p) return;
+      document.getElementById('propId').value = p.id;
+      document.getElementById('propName').value = p.name;
+      document.getElementById('propOwner').value = p.owner || '';
+      document.getElementById('propDate').value = p.date;
+      document.getElementById('propDistrict').value = p.district;
+      document.getElementById('propType').value = p.type;
+      propModalTitle.textContent = '修改地點檢測資料';
+      propertyModal.classList.remove('hidden');
+    }
+
+    function deleteProperty(id) {
+      if (confirm('是否確認刪除此地點及其所有檢測紀錄？')) {
+        properties = properties.filter(p => p.id !== id);
+        saveData();
+        renderPage1();
+      }
+    }
+
+    [closePropModalBtn, cancelPropModalBtn].forEach(btn => {
+      btn.onclick = () => propertyModal.classList.add('hidden');
+    });
+
+    propForm.onsubmit = (e) => {
+      e.preventDefault();
+      const id = document.getElementById('propId').value;
+      const name = document.getElementById('propName').value.trim();
+      const owner = document.getElementById('propOwner').value.trim();
+      const date = document.getElementById('propDate').value;
+      const district = document.getElementById('propDistrict').value;
+      const type = document.getElementById('propType').value;
+
+      if (id) {
+        const p = properties.find(item => item.id === id);
+        if (p) {
+          p.name = name;
+          p.owner = owner;
+          p.date = date;
+          p.district = district;
+          p.type = type;
+        }
+      } else {
+        const newProp = {
+          id: 'prop-' + Date.now(),
+          name, owner, date, district, type,
+          categories: JSON.parse(JSON.stringify(DEFAULT_CATEGORIES)),
+          rooms: DEFAULT_HK_ROOMS.map(r => ({ 
+            name: r, 
+            defects: {}, 
+            selectedCategories: getDefaultCategoryIdsForRoom(r) 
+          }))
+        };
+        properties.unshift(newProp);
+      }
+
+      saveData();
+      propertyModal.classList.add('hidden');
+      renderPage1();
+    };
+
+    function getCurrentProperty() {
+      return properties.find(p => p.id === currentPropId);
+    }
+
+    function renderPage2() {
+      const prop = getCurrentProperty();
+      if (!prop) {
+        showPage(1);
+        return;
+      }
+      sortRoomsArray(prop.rooms);
+
+      propertySummaryCard.innerHTML = `
+        <div class="flex justify-between items-start">
+          <div>
+            <span class="text-xs font-semibold px-2 py-0.5 rounded bg-white/70 text-slate-800 border border-[#b2c5d5]">${prop.district} ・ ${prop.type}</span>
+            <h2 class="text-lg font-bold mt-1 text-slate-900">${prop.name}</h2>
+          </div>
+        </div>
+        <div class="flex items-center space-x-4 text-xs text-slate-700 pt-1 border-t border-[#b2c5d5]/60">
+          <span><i class="fa-solid fa-user mr-1.5 text-slate-500"></i>業主：${prop.owner || '未提供'}</span>
+          <span><i class="fa-solid fa-calendar mr-1.5 text-slate-500"></i>日期：${prop.date}</span>
+        </div>
+      `;
+
+      roomGrid.innerHTML = '';
+      prop.rooms.forEach((room, index) => {
+        let roomDefectCount = 0;
+        if (room.defects) {
+          Object.values(room.defects).forEach(d => {
+            if (d.checked || (d.photos && d.photos.length > 0)) roomDefectCount++;
+          });
+        }
+
+        const roomCard = document.createElement('div');
+        roomCard.className = 'bg-cardBg p-4 rounded-xl border border-[#b2c5d5] shadow-xs hover:border-[#aecedd] transition cursor-pointer flex items-center justify-between group';
+        roomCard.onclick = () => {
+          currentRoomIndex = index;
+          showPage(3);
+        };
+
+        roomCard.innerHTML = `
+          <div class="flex items-center space-x-3 truncate">
+            <div class="w-10 h-10 rounded-lg bg-[#aecedd] text-slate-900 flex items-center justify-center font-bold group-hover:bg-[#9bc2d4] transition shrink-0 border border-[#b2c5d5]">
+              <i class="fa-solid fa-door-closed text-lg"></i>
+            </div>
+            <div class="truncate">
+              <h4 class="font-bold text-slate-800 text-sm group-hover:text-slate-900 transition truncate">${room.name}</h4>
+              <p class="text-xs text-slate-500 mt-0.5 truncate">
+                ${roomDefectCount > 0 ? `<span class="text-amber-700 font-semibold"><i class="fa-solid fa-circle-exclamation mr-1"></i>問題: ${roomDefectCount} 項</span>` : '紀錄完好'}
+              </p>
+            </div>
+          </div>
+          <div class="flex items-center space-x-1 shrink-0 ml-2" onclick="event.stopPropagation()">
+            <button onclick="openEditRoomModal(${index})" class="text-slate-600 hover:text-slate-900 p-2 rounded-lg hover:bg-[#aecedd] transition" title="修改區域">
+              <i class="fa-solid fa-pen-to-square text-base"></i>
+            </button>
+            <button onclick="deleteRoom(${index})" class="text-slate-600 hover:text-red-600 p-2 rounded-lg hover:bg-red-100 transition" title="刪除區域">
+              <i class="fa-solid fa-trash-can text-base"></i>
+            </button>
+          </div>
+        `;
+        roomGrid.appendChild(roomCard);
+      });
+    }
+
+    addRoomBtn.onclick = () => {
+      roomForm.reset();
+      document.getElementById('roomIndex').value = '';
+      roomModalTitle.textContent = '新增位置區域';
+      roomModal.classList.remove('hidden');
+    };
+
+    function setPresetRoom(val) {
+      document.getElementById('roomName').value = val;
+    }
+
+    function openEditRoomModal(index) {
+      const prop = getCurrentProperty();
+      if (!prop) return;
+      document.getElementById('roomIndex').value = index;
+      document.getElementById('roomName').value = prop.rooms[index].name;
+      roomModalTitle.textContent = '修改位置區域名稱';
+      roomModal.classList.remove('hidden');
+    }
+
+    function deleteRoom(index) {
+      const prop = getCurrentProperty();
+      if (!prop) return;
+      if (confirm(`是否確認刪除「${prop.rooms[index].name}」區塊及其所有檢測紀錄？`)) {
+        prop.rooms.splice(index, 1);
+        saveData();
+        renderPage2();
+      }
+    }
+
+    [closeRoomModalBtn, cancelRoomModalBtn].forEach(btn => {
+      btn.onclick = () => roomModal.classList.add('hidden');
+    });
+
+    roomForm.onsubmit = (e) => {
+      e.preventDefault();
+      const prop = getCurrentProperty();
+      if (!prop) return;
+
+      const idxStr = document.getElementById('roomIndex').value;
+      const rName = document.getElementById('roomName').value.trim();
+
+      if (idxStr !== '') {
+        prop.rooms[parseInt(idxStr)].name = rName;
+      } else {
+        // 新增區域時，依據區域名稱自動配對對應的預設大項目清單
+        const defaultCats = getDefaultCategoryIdsForRoom(rName);
+        prop.rooms.push({ name: rName, defects: {}, selectedCategories: defaultCats });
+      }
+
+      sortRoomsArray(prop.rooms);
+      saveData();
+      roomModal.classList.add('hidden');
+      renderPage2();
+    };
+
+    function prepareAndPrint() {
+      const prop = getCurrentProperty();
+      if (!prop) return;
+
+      const printMetaTable = document.getElementById('printMetaTable');
+      const printDefectsTable = document.getElementById('printDefectsTable');
+
+      printMetaTable.innerHTML = `
+        <tr>
+          <th>地點/屋苑名稱</th>
+          <td>${prop.name}</td>
+          <th>檢測日期</th>
+          <td>${prop.date}</td>
+        </tr>
+        <tr>
+          <th>業主姓名</th>
+          <td>${prop.owner || '未提供'}</td>
+          <th>地區 / 種類</th>
+          <td>${prop.district} (${prop.type})</td>
+        </tr>
+      `;
+
+      let rowsHTML = `
+        <thead>
+          <tr>
+            <th style="width: 18%;">位置區域</th>
+            <th style="width: 22%;">檢測類別 / 子類</th>
+            <th style="width: 42%;">發現問題描述</th>
+            <th style="width: 18%;">現場相片數量</th>
+          </tr>
+        </thead>
+        <tbody>
+      `;
+
+      let hasDefects = false;
+      sortRoomsArray(prop.rooms);
+
+      prop.rooms.forEach(room => {
+        if (room.defects) {
+          prop.categories.forEach(cat => {
+            cat.subCategories.forEach(sub => {
+              sub.items.forEach((itemText, itemIdx) => {
+                if (itemText === '妥當') return;
+                const itemKey = `${sub.id}_${itemIdx}`;
+                const dData = room.defects[itemKey];
+                if (dData && (dData.checked || (dData.photos && dData.photos.length > 0))) {
+                  hasDefects = true;
+                  rowsHTML += `
+                    <tr>
+                      <td><strong>${room.name}</strong></td>
+                      <td>${cat.name}<br><span style="font-size: 9pt; color: #555;">(${sub.name})</span></td>
+                      <td>${itemText}</td>
+                      <td>${dData.photos ? dData.photos.length : 0} 張相片</td>
+                    </tr>
+                  `;
+                }
+              });
+            });
+          });
+        }
+      });
+
+      if (!hasDefects) {
+        rowsHTML += `
+          <tr>
+            <td colspan="4" style="text-align: center; color: #666; padding: 20px;">
+              此地點紀錄完好，暫無標記問題項目。
+            </td>
+          </tr>
+        `;
+      }
+
+      rowsHTML += `</tbody>`;
+      printDefectsTable.innerHTML = rowsHTML;
+      window.print();
+    }
+
+    page2PrintBtn.addEventListener('click', prepareAndPrint);
+
+    // PAGE 3: 檢測項目清單版面（只顯示已勾選的大項目）
+    function renderPage3() {
+      const prop = getCurrentProperty();
+      if (!prop || currentRoomIndex === null) {
+        showPage(2);
+        return;
+      }
+
+      const room = prop.rooms[currentRoomIndex];
+      p3RoomBadge.textContent = room.name;
+      p3PropName.textContent = prop.name;
+
+      if (!room.defects) room.defects = {};
+      if (!room.selectedCategories) room.selectedCategories = [];
+
+      checklistItemsContainer.innerHTML = '';
+
+      if (room.selectedCategories.length === 0) {
+        checklistItemsContainer.innerHTML = `
+          <div class="bg-cardBg p-8 text-center rounded-xl border border-[#b2c5d5] text-slate-500">
+            <p class="text-sm">暫未新增任何檢測項目，請點擊上方「按此新增」選擇。</p>
+          </div>
+        `;
+        return;
+      }
+
+      prop.categories.forEach((cat, catIdx) => {
+        if (!room.selectedCategories.includes(cat.id)) return;
+
+        let catProblemCount = 0;
+        let totalPhotos = 0;
+
+        cat.subCategories.forEach(sub => {
+          sub.items.forEach((itemText, itemIdx) => {
+            const itemKey = `${sub.id}_${itemIdx}`;
+            const dData = room.defects[itemKey];
+            if (dData) {
+              if (dData.checked || (dData.photos && dData.photos.length > 0)) catProblemCount++;
+              if (dData.photos) totalPhotos += dData.photos.length;
+            }
+          });
+        });
+
+        const catCard = document.createElement('div');
+        catCard.className = 'bg-cardBg p-4 rounded-xl border border-[#b2c5d5] shadow-xs hover:border-[#aecedd] hover:shadow-md transition cursor-pointer flex items-center justify-between group';
+        catCard.onclick = () => openCategoryModal(catIdx);
+
+        catCard.innerHTML = `
+          <div class="flex items-center space-x-3 truncate">
+            <span class="w-8 h-8 rounded-lg bg-[#aecedd] text-slate-900 font-bold text-xs flex items-center justify-center shrink-0 border border-[#b2c5d5]">${catIdx + 1}</span>
+            <div class="truncate">  
+              <h3 class="font-bold text-slate-800 text-base group-hover:text-slate-900 transition truncate">${cat.name}</h3>
+              <p class="text-xs text-slate-500 mt-0.5 truncate flex items-center space-x-2">
+                <span>${catProblemCount > 0 ? `<span class="text-amber-700 font-semibold"><i class="fa-solid fa-circle-exclamation mr-1"></i>問題: ${catProblemCount} 項</span>` : '紀錄完好'}</span>
+                <span>•</span>
+                <span>${totalPhotos > 0 ? `<span class="text-sky-700 font-semibold"><i class="fa-solid fa-camera mr-1"></i>相片: ${totalPhotos} 張</span>` : '<span class="text-slate-400">相片: 0 張</span>'}</span>
+              </p>
+            </div>
+          </div>
+          <div class="flex items-center space-x-2 shrink-0 ml-2">
+            <span class="bg-white text-slate-700 text-xs font-semibold px-2.5 py-1 rounded-full border border-[#b2c5d5]">
+              ${cat.subCategories.length} 個類別
+            </span>
+            <button onclick="event.stopPropagation(); removeSelectedCategory('${cat.id}')" class="text-slate-400 hover:text-red-600 p-1.5 rounded-lg hover:bg-red-50 transition" title="移除此項目">
+              <i class="fa-solid fa-trash-can text-sm"></i>
+            </button>
+          </div>
+        `;
+
+        checklistItemsContainer.appendChild(catCard);
+      });
+    }
+
+    // 點擊「按此新增」彈出選擇視窗
+    triggerAddCategoryBtn.onclick = () => {
+      const prop = getCurrentProperty();
+      if (!prop || currentRoomIndex === null) return;
+      const room = prop.rooms[currentRoomIndex];
+
+      selectCategoryList.innerHTML = '';
+
+      prop.categories.forEach((cat, cIdx) => {
+        const isChecked = room.selectedCategories.includes(cat.id);
+        const subNames = cat.subCategories.map(s => s.name).join('、');
+
+        const itemDiv = document.createElement('div');
+        itemDiv.className = 'p-3 bg-white rounded-xl border border-[#b2c5d5] space-y-2 hover:border-[#aecedd] transition';
+        
+        itemDiv.innerHTML = `
+          <label class="flex items-center space-x-2.5 cursor-pointer">
+            <input type="checkbox" value="${cat.id}" class="main-cat-checkbox w-4 h-4 text-slate-800 rounded border-[#b2c5d5] focus:ring-[#aecedd]" ${isChecked ? 'checked' : ''}>
+            <span class="font-bold text-sm text-slate-800">${cIdx + 1}. ${cat.name}</span>
+          </label>
+          <div class="flex items-start gap-1.5 bg-amber-50 border border-amber-200/80 text-amber-900 text-xs p-2 rounded-lg">
+            <i class="fa-solid fa-lightbulb text-amber-600 mt-0.5 shrink-0"></i>
+            <span>包含：${subNames}</span>
+          </div>
+        `;
+
+        selectCategoryList.appendChild(itemDiv);
+      });
+
+      selectCategoryModal.classList.remove('hidden');
+    };
+
+    [closeSelectCategoryModalBtn, cancelSelectCategoryBtn].forEach(btn => {
+      btn.onclick = () => selectCategoryModal.classList.add('hidden');
+    });
+
+    confirmSelectCategoryBtn.onclick = () => {
+      const prop = getCurrentProperty();
+      if (!prop || currentRoomIndex === null) return;
+      const room = prop.rooms[currentRoomIndex];
+
+      const checkboxes = selectCategoryList.querySelectorAll('.main-cat-checkbox');
+      const selected = [];
+      checkboxes.forEach(cb => {
+        if (cb.checked) selected.push(cb.value);
+      });
+
+      room.selectedCategories = selected;
+      saveData();
+      selectCategoryModal.classList.add('hidden');
+      renderPage3();
+    };
+
+    function removeSelectedCategory(catId) {
+      const prop = getCurrentProperty();
+      if (!prop || currentRoomIndex === null) return;
+      const room = prop.rooms[currentRoomIndex];
+
+      if (confirm('是否確認移除此項目的顯示？')) {
+        room.selectedCategories = room.selectedCategories.filter(id => id !== catId);
+        saveData();
+        renderPage3();
+      }
+    }
+
+    // FULLSCREEN CATEGORY MODAL LOGIC (全螢幕獨立視窗)
+    function openCategoryModal(catIdx) {
+      activeCatIndex = catIdx;
+      const prop = getCurrentProperty();
+      if (!prop) return;
+      const cat = prop.categories[catIdx];
+
+      catModalBadge.textContent = catIdx + 1;
+      catModalNameText.textContent = cat.name;
+
+      renderSubTabs();
+      categoryModal.classList.remove('hidden');
+      if (cat.subCategories.length > 0) {
+        switchSubTab(cat.subCategories[0].id, catSubTabNav.children[0]);
+      } else {
+        activeSubTabId = null;
+        catModalBody.innerHTML = '<div class="p-8 text-center text-slate-500 text-sm">請點擊右上角新增子項目按鈕來建立子分類。</div>';
+      }
+    }
+
+    function renderSubTabs() {
+      const prop = getCurrentProperty();
+      if (!prop || activeCatIndex === null) return;
+      const cat = prop.categories[activeCatIndex];
+
+      catSubTabNav.innerHTML = '';
+      cat.subCategories.forEach((sub, sIdx) => {
+        const tabBtn = document.createElement('button');
+        tabBtn.type = 'button';
+        tabBtn.dataset.subId = sub.id;
+        const isActive = sub.id === activeSubTabId || (sIdx === 0 && !activeSubTabId);
+        tabBtn.className = `sub-tab-btn chrome-tab px-4 py-2 text-base font-bold whitespace-nowrap flex items-center gap-1.5 ${isActive ? 'active' : ''}`;
+        tabBtn.onclick = () => switchSubTab(sub.id, tabBtn);
+        tabBtn.innerHTML = `${sub.name}`;
+        catSubTabNav.appendChild(tabBtn);
+      });
+    }
+
+    function switchSubTab(subId, activeTabBtn) {
+      activeSubTabId = subId;
+      const allTabs = catSubTabNav.querySelectorAll('.sub-tab-btn');
+      allTabs.forEach(btn => btn.classList.remove('active'));
+      if (activeTabBtn) {
+        activeTabBtn.classList.add('active');
+      }
+      renderModalSubTabContent();
+    }
+
+    function renderModalSubTabContent() {
+      const prop = getCurrentProperty();
+      if (!prop || currentRoomIndex === null || activeCatIndex === null || !activeSubTabId) return;
+
+      const room = prop.rooms[currentRoomIndex];
+      const cat = prop.categories[activeCatIndex];
+      const sub = cat.subCategories.find(s => s.id === activeSubTabId);
+
+      if (!sub) return;
+
+      catModalBody.innerHTML = '';
+
+      const hintMethod = sub.method || cat.method || '';
+      if (hintMethod) {
+        const hintBox = document.createElement('div');
+        hintBox.className = 'inline-flex items-center gap-2 bg-amber-50 border border-amber-200 text-amber-800 px-3.5 py-2 rounded-xl text-xs font-medium max-w-full mb-3 shadow-xs';
+        hintBox.innerHTML = `
+          <i class="fa-solid fa-triangle-exclamation text-amber-600 shrink-0 text-sm"></i>
+          <span class="font-medium">${hintMethod}</span>
+        `;
+        catModalBody.appendChild(hintBox);
+      }
+
+      if (sub.items.length === 0) {
+        catModalBody.innerHTML += '<div class="p-8 text-center text-slate-500 text-sm">此子項目暫無問題選項，請點擊上方「新增問題」加入。</div>';
+        return;
+      }
+
+      sub.items.forEach((itemText, itemIdx) => {
+        const itemKey = `${sub.id}_${itemIdx}`;
+        const itemData = room.defects[itemKey] || { checked: false, photos: [] };
+
+        const itemRow = document.createElement('div');
+        itemRow.className = 'p-3.5 rounded-xl border border-[#b2c5d5] bg-cardBg shadow-xs hover:border-[#aecedd] space-y-3 transition';
+
+        itemRow.innerHTML = `
+          <div class="flex items-start justify-between gap-3">
+            <label class="flex items-start gap-2.5 cursor-pointer text-sm text-slate-800 flex-1">
+              <input type="checkbox" id="chk_${itemKey}" ${itemData.checked ? 'checked' : ''} onchange="toggleCheckItem('${itemKey}')" class="mt-0.5 w-4 h-4 text-slate-800 rounded border-[#b2c5d5] focus:ring-[#aecedd]">
+              <span class="font-medium leading-snug">${itemText}</span>
+            </label>
+            <label class="bg-[#e5eff4] hover:bg-[#aecedd] text-slate-700 px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer flex items-center gap-1.5 transition shrink-0 shadow-xs">
+              <i class="fa-solid fa-camera text-slate-700"></i>
+              <input type="file" accept="image/*" class="hidden" onchange="handlePhotoUpload(event, '${itemKey}')">
+            </label>
+          </div>
+          <div id="gallery_${itemKey}" class="flex flex-wrap gap-2 pt-1"></div>
+        `;
+
+        catModalBody.appendChild(itemRow);
+
+        if (itemData.photos) {
+          renderThumbnails(itemKey, itemData.photos);
+        }
+      });
+    }
+
+    closeCatModalBtn.onclick = () => {
+      categoryModal.classList.add('hidden');
+      activeCatIndex = null;
+      activeSubTabId = null;
+      renderPage3();
+    };
+
+    openAddSubModalBtn.onclick = () => {
+      addSubForm.reset();
+      addSubModal.classList.remove('hidden');
+    };
+    closeAddSubModalBtn.onclick = () => addSubModal.classList.add('hidden');
+    cancelAddSubBtn.onclick = () => addSubModal.classList.add('hidden');
+
+    addSubForm.onsubmit = (e) => {
+      e.preventDefault();
+      const prop = getCurrentProperty();
+      if (!prop || activeCatIndex === null) return;
+
+      const subName = subCategoryNameInput.value.trim();
+      if (!subName) return;
+
+      const cat = prop.categories[activeCatIndex];
+      const newSubId = 'sub_' + Date.now();
+
+      cat.subCategories.push({
+        id: newSubId,
+        name: subName,
+        items: ['妥當', '發現異常瑕疵']
+      });
+
+      saveData();
+      addSubModal.classList.add('hidden');
+      renderSubTabs();
+      switchSubTab(newSubId, catSubTabNav.lastChild);
+    };
+
+    openDeleteSubModalBtn.onclick = () => {
+      const prop = getCurrentProperty();
+      if (!prop || activeCatIndex === null) return;
+      const cat = prop.categories[activeCatIndex];
+
+      deleteSubSelect.innerHTML = '';
+      cat.subCategories.forEach((sub, idx) => {
+        const opt = document.createElement('option');
+        opt.value = sub.id;
+        opt.textContent = `${idx + 1}. ${sub.name}`;
+        deleteSubSelect.appendChild(opt);
+      });
+
+      if (cat.subCategories.length === 0) {
+        alert('目前沒有可刪除的子項目！');
+        return;
+      }
+      deleteSubModal.classList.remove('hidden');
+    };
+
+    closeDeleteSubModalBtn.onclick = () => deleteSubModal.classList.add('hidden');
+    cancelDeleteSubBtn.onclick = () => deleteSubModal.classList.add('hidden');
+
+    confirmDeleteSubBtn.onclick = () => {
+      const prop = getCurrentProperty();
+      if (!prop || activeCatIndex === null) return;
+      const cat = prop.categories[activeCatIndex];
+
+      const targetSubId = deleteSubSelect.value;
+      const subObj = cat.subCategories.find(s => s.id === targetSubId);
+      if (!subObj) return;
+
+      if (confirm(`是否確認刪除子項目「${subObj.name}」？`)) {
+        cat.subCategories = cat.subCategories.filter(s => s.id !== targetSubId);
+        saveData();
+        deleteSubModal.classList.add('hidden');
+        renderSubTabs();
+        if (cat.subCategories.length > 0) {
+          switchSubTab(cat.subCategories[0].id, catSubTabNav.children[0]);
+        } else {
+          activeSubTabId = null;
+          catModalBody.innerHTML = '<div class="p-8 text-center text-slate-500 text-sm">此項目目前沒有子項目。</div>';
+        }
+      }
+    };
+
+    openAddProblemModalBtn.onclick = () => {
+      if (!activeSubTabId) {
+        alert('請先選擇或建立一個子項目標籤！');
+        return;
+      }
+      addProblemForm.reset();
+      addProblemModal.classList.remove('hidden');
+    };
+    closeAddProblemModalBtn.onclick = () => addProblemModal.classList.add('hidden');
+    cancelAddProblemBtn.onclick = () => addProblemModal.classList.add('hidden');
+
+    addProblemForm.onsubmit = (e) => {
+      e.preventDefault();
+      const prop = getCurrentProperty();
+      if (!prop || activeCatIndex === null || !activeSubTabId) return;
+
+      const probDesc = problemDescInput.value.trim();
+      if (!probDesc) return;
+
+      const cat = prop.categories[activeCatIndex];
+      const sub = cat.subCategories.find(s => s.id === activeSubTabId);
+      if (!sub) return;
+
+      sub.items.push(probDesc);
+      saveData();
+      addProblemModal.classList.add('hidden');
+      renderModalSubTabContent();
+    };
+
+    openDeleteProblemModalBtn.onclick = () => {
+      if (!activeSubTabId) {
+        alert('請先選擇一個子項目標籤！');
+        return;
+      }
+      const prop = getCurrentProperty();
+      if (!prop || activeCatIndex === null) return;
+      const cat = prop.categories[activeCatIndex];
+      const sub = cat.subCategories.find(s => s.id === activeSubTabId);
+      if (!sub) return;
+
+      deleteProblemSelect.innerHTML = '';
+      sub.items.forEach((item, idx) => {
+        const opt = document.createElement('option');
+        opt.value = idx;
+        opt.textContent = `${idx + 1}. ${item}`;
+        deleteProblemSelect.appendChild(opt);
+      });
+
+      if (sub.items.length === 0) {
+        alert('此子項目目前沒有可刪除的問題選項！');
+        return;
+      }
+      deleteProblemModal.classList.remove('hidden');
+    };
+
+    closeDeleteProblemModalBtn.onclick = () => deleteProblemModal.classList.add('hidden');
+    cancelDeleteProblemBtn.onclick = () => deleteProblemModal.classList.add('hidden');
+
+    confirmDeleteProblemBtn.onclick = () => {
+      const prop = getCurrentProperty();
+      if (!prop || activeCatIndex === null || !activeSubTabId) return;
+      const cat = prop.categories[activeCatIndex];
+      const sub = cat.subCategories.find(s => s.id === activeSubTabId);
+      if (!sub) return;
+
+      const selectedIdx = parseInt(deleteProblemSelect.value);
+      if (isNaN(selectedIdx)) return;
+
+      const probText = sub.items[selectedIdx];
+      if (confirm(`是否確認刪除問題選項「${probText}」？`)) {
+        sub.items.splice(selectedIdx, 1);
+        saveData();
+        deleteProblemModal.classList.add('hidden');
+        renderModalSubTabContent();
+      }
+    };
+
+    function toggleCheckItem(itemKey) {
+      const prop = getCurrentProperty();
+      if (!prop || currentRoomIndex === null) return;
+      const room = prop.rooms[currentRoomIndex];
+
+      if (!room.defects[itemKey]) {
+        room.defects[itemKey] = { checked: false, photos: [] };
+      }
+
+      const chk = document.getElementById(`chk_${itemKey}`);
+      room.defects[itemKey].checked = chk.checked;
+      saveData();
+    }
+
+    function handlePhotoUpload(event, itemKey) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      compressImage(file, 1024, 0.7, function(base64Src) {
+        const prop = getCurrentProperty();
+        if (!prop || currentRoomIndex === null) return;
+
+        const room = prop.rooms[currentRoomIndex];
+        if (!room.defects[itemKey]) room.defects[itemKey] = { checked: true, photos: [] };
+
+        room.defects[itemKey].checked = true;
+        if (!room.defects[itemKey].photos) room.defects[itemKey].photos = [];
+        room.defects[itemKey].photos.push(base64Src);
+
+        if (!saveData()) {
+          room.defects[itemKey].photos.pop();
+          return;
+        }
+
+        const chk = document.getElementById(`chk_${itemKey}`);
+        if (chk) chk.checked = true;
+
+        renderThumbnails(itemKey, room.defects[itemKey].photos);
+      });
+    }
+
+    function compressImage(file, maxDimension, quality, callback) {
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const img = new Image();
+        img.onload = function() {
+          let width = img.width;
+          let height = img.height;
+
+          if (width > maxDimension || height > maxDimension) {
+            if (width > height) {
+              height = Math.round((height * maxDimension) / width);
+              width = maxDimension;
+            } else {
+              width = Math.round((width * maxDimension) / height);
+              height = maxDimension;
+            }
+          }
+
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+
+          const compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
+          callback(compressedDataUrl);
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function renderThumbnails(itemKey, photos) {
+      const container = document.getElementById(`gallery_${itemKey}`);
+      if (!container) return;
+      container.innerHTML = '';
+
+      photos.forEach((src, pIdx) => {
+        const thumbWrapper = document.createElement('div');
+        thumbWrapper.className = 'relative w-16 h-16 rounded-lg overflow-hidden border border-[#b2c5d5] shadow-xs group bg-white';
+
+        thumbWrapper.innerHTML = `
+          <img src="${src}" class="w-full h-full object-cover cursor-pointer hover:scale-105 transition" onclick="openLightbox('${itemKey}', ${pIdx})">
+          <button onclick="deletePhoto('${itemKey}', ${pIdx})" class="absolute top-0.5 right-0.5 bg-black/60 hover:bg-red-600 text-white w-5 h-5 rounded-full flex items-center justify-center text-[10px] transition">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        `;
+        container.appendChild(thumbWrapper);
+      });
+    }
+
+    function deletePhoto(itemKey, photoIndex) {
+      const prop = getCurrentProperty();
+      if (!prop || currentRoomIndex === null) return;
+      const room = prop.rooms[currentRoomIndex];
+
+      if (room.defects[itemKey] && room.defects[itemKey].photos) {
+        room.defects[itemKey].photos.splice(photoIndex, 1);
+        saveData();
+        renderThumbnails(itemKey, room.defects[itemKey].photos);
+      }
+    }
+
+    let activePhotosList = [];
+    let activePhotoIndex = 0;
+    let scale = 1;
+    let panX = 0;
+    let panY = 0;
+    let isDragging = false;
+    let startX = 0;
+    let startY = 0;
+
+    function openLightbox(itemKey, photoIdx) {
+      const prop = getCurrentProperty();
+      if (!prop || currentRoomIndex === null) return;
+      const room = prop.rooms[currentRoomIndex];
+
+      if (room.defects[itemKey] && room.defects[itemKey].photos) {
+        activePhotosList = room.defects[itemKey].photos;
+        activePhotoIndex = photoIdx;
+        showLightboxImage();
+        lightboxModal.classList.remove('hidden');
+      }
+    }
+
+    function showLightboxImage() {
+      resetZoomTransform();
+      lbImage.src = activePhotosList[activePhotoIndex];
+      lbCounter.textContent = `${activePhotoIndex + 1} / ${activePhotosList.length}`;
+      lbPrevBtn.style.display = activePhotosList.length > 1 ? 'flex' : 'none';
+      lbNextBtn.style.display = activePhotosList.length > 1 ? 'flex' : 'none';
+    }
+
+    function resetZoomTransform() {
+      scale = 1;
+      panX = 0;
+      panY = 0;
+      applyTransform();
+    }
+
+    function applyTransform() {
+      lbTransformContainer.style.transform = `translate3d(${panX}px, ${panY}px, 0px) scale(${scale})`;
+    }
+
+    lbPrevBtn.onclick = () => {
+      if (activePhotosList.length <= 1) return;
+      activePhotoIndex = (activePhotoIndex - 1 + activePhotosList.length) % activePhotosList.length;
+      showLightboxImage();
+    };
+
+    lbNextBtn.onclick = () => {
+      if (activePhotosList.length <= 1) return;
+      activePhotoIndex = (activePhotoIndex + 1) % activePhotosList.length;
+      showLightboxImage();
+    };
+
+    lbCloseBtn.onclick = () => lightboxModal.classList.add('hidden');
+    lbZoomReset.onclick = resetZoomTransform;
+
+    lbViewport.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const zoomFactor = e.deltaY < 0 ? 1.15 : 0.85;
+      scale = Math.min(Math.max(0.8, scale * zoomFactor), 5);
+      applyTransform();
+    }, { passive: false });
+
+    lbViewport.addEventListener('mousedown', (e) => {
+      if (e.target.closest('button')) return;
+      isDragging = true;
+      startX = e.clientX - panX;
+      startY = e.clientY - panY;
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (!isDragging) return;
+      panX = e.clientX - startX;
+      panY = e.clientY - startY;
+      applyTransform();
+    });
+
+    window.addEventListener('mouseup', () => { isDragging = false; });
+
+    lbViewport.addEventListener('dblclick', (e) => {
+      if (e.target.closest('button')) return;
+      if (scale > 1) {
+        resetZoomTransform();
+      } else {
+        scale = 2.2;
+        applyTransform();
+      }
+    });
+
+    let touchStartDist = 0;
+    lbViewport.addEventListener('touchstart', (e) => {
+      if (e.touches.length === 2) {
+        touchStartDist = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
+      } else if (e.touches.length === 1) {
+        isDragging = true;
+        startX = e.touches[0].clientX - panX;
+        startY = e.touches[0].clientY - panY;
+      }
+    }, { passive: true });
+
+    lbViewport.addEventListener('touchmove', (e) => {
+      if (e.touches.length === 2) {
+        const dist = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
+        if (touchStartDist > 0) {
+          const factor = dist / touchStartDist;
+          scale = Math.min(Math.max(0.8, scale * factor), 5);
+          applyTransform();
+          touchStartDist = dist;
+        }
+      } else if (e.touches.length === 1 && isDragging) {
+        panX = e.touches[0].clientX - startX;
+        panY = e.touches[0].clientY - startY;
+        applyTransform();
+      }
+    }, { passive: true });
+
+    lbViewport.addEventListener('touchend', () => {
+      isDragging = false;
+      touchStartDist = 0;
+    });
+
+    backupBtn.onclick = () => {
+      if (confirm("確定要將所有檢測數據備份為 JSON 檔案？")) {
+        const jsonStr = JSON.stringify(properties, null, 2);
+        const blob = new Blob([jsonStr], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `樓宇檢測報告_備份_${new Date().toISOString().slice(0,10)}.json`;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => {
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        }, 100);
+      }
+    };
+
+    restoreBtn.onclick = () => {
+      if (confirm("確定要選擇備份檔案以還原數據？這將會覆蓋現有紀錄。")) {
+        restoreInput.click();
+      }
+    };
+
+    restoreInput.onchange = (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        try {
+          const importedData = JSON.parse(event.target.result);
+          if (Array.isArray(importedData)) {
+            properties = importedData;
+            saveData();
+            renderPage1();
+            alert("成功還原數據紀錄！");
+          } else {
+            alert("無效的備份檔案格式。");
+          }
+        } catch (err) {
+          alert("讀取備份檔案失敗：" + err.message);
+        }
+        restoreInput.value = '';
+      };
+      reader.readAsText(file);
+    };
+
+    showPage(1);
+  </script>
+</body>
+</html>
