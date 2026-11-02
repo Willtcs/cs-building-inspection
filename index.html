@@ -964,7 +964,7 @@
         type: '獨立屋/洋房',
         categories: JSON.parse(JSON.stringify(DEFAULT_CATEGORIES)),
         rooms: [
-          { name: '玄關/走廊', defects: {} },
+          { name: '玄關/走廊',, defects: {}, selectedCategories: getDefaultCategoryIdsForRoom('玄關/走廊') },
           { name: '客廳', defects: {}, selectedCategories: getDefaultCategoryIdsForRoom('客廳') },
           { name: '飯廳', defects: {}, selectedCategories: getDefaultCategoryIdsForRoom('飯廳') },
           { name: '主人房', defects: {}, selectedCategories: getDefaultCategoryIdsForRoom('主人房') },
