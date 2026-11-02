@@ -936,9 +936,53 @@
         rooms: DEFAULT_HK_ROOMS.map(r => ({ 
           name: r, 
           defects: {}, 
-          selectedCategories: getDefaultCategoryIdsForRoom(r) 
-        }))
+          selectedCategories: getDefaultCategoryIdsForRoom(r) }))
+      },
+      {
+        id: 'prop-3',
+        name: '日出康城 領都 5座 28樓 C室',
+        owner: '李先生',
+        date: '2026-10-22',
+        district: '新界',
+        type: '私人住宅',
+        categories: JSON.parse(JSON.stringify(DEFAULT_CATEGORIES)),
+        rooms: [
+          { name: '客廳', defects: {} },
+          { name: '主人房', defects: {} },
+          { name: '睡房', defects: {} },
+          { name: '廚房', defects: {} },
+          { name: '客用浴室', defects: {} },
+          { name: '露台/工作平台', defects: {} }
+        ]
+      },
+      {
+        id: 'prop-4',
+        name: '跑馬地 禮頓山 2座 15樓 D室',
+        owner: '黃太太',
+        date: '2026-10-24',
+        district: '港島',
+        type: '獨立屋/洋房',
+        categories: JSON.parse(JSON.stringify(DEFAULT_CATEGORIES)),
+        rooms: [
+          { name: '玄關/走廊', defects: {} },
+          { name: '客廳', defects: {} },
+          { name: '飯廳', defects: {} },
+          { name: '主人房', defects: {} },
+          { name: '衣帽間', defects: {} },
+          { name: '主人浴室', defects: {} }
+        ]
+      },
+      {
+        id: 'prop-5',
+        name: '西半山 羅便臣道88號 12樓 B室',
+        owner: '周先生',
+        date: '2026-10-25',
+        district: '港島',
+        type: '私人住宅',
+        categories: JSON.parse(JSON.stringify(DEFAULT_CATEGORIES)),
+        rooms: DEFAULT_HK_ROOMS.map(r => ({ name: r, defects: {} }))
       }
+
     ];
 
     // STATE MANAGEMENT
