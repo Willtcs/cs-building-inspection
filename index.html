@@ -947,12 +947,12 @@
         type: '私人住宅',
         categories: JSON.parse(JSON.stringify(DEFAULT_CATEGORIES)),
         rooms: [
-          { name: '客廳', defects: {} },
-          { name: '主人房', defects: {} },
-          { name: '睡房', defects: {} },
-          { name: '廚房', defects: {} },
-          { name: '客用浴室', defects: {} },
-          { name: '露台/工作平台', defects: {} }
+          { name: '客廳', defects: {}, selectedCategories: getDefaultCategoryIdsForRoom('客廳') },
+          { name: '主人房', selectedCategories: getDefaultCategoryIdsForRoom('主人房') },
+          { name: '睡房', defects: {} }, selectedCategories: getDefaultCategoryIdsForRoom('睡房') },
+          { name: '廚房', defects: {} }, selectedCategories: getDefaultCategoryIdsForRoom('主人浴室') },
+          { name: '客用浴室', defects: {} }, selectedCategories: getDefaultCategoryIdsForRoom('客用浴室') },
+          { name: '露台/工作平台', defects: {} } selectedCategories: getDefaultCategoryIdsForRoom('露台/工作平台') }
         ]
       },
       {
@@ -965,11 +965,11 @@
         categories: JSON.parse(JSON.stringify(DEFAULT_CATEGORIES)),
         rooms: [
           { name: '玄關/走廊', defects: {} },
-          { name: '客廳', defects: {} },
-          { name: '飯廳', defects: {} },
-          { name: '主人房', defects: {} },
-          { name: '衣帽間', defects: {} },
-          { name: '主人浴室', defects: {} }
+          { name: '客廳', defects: {}, selectedCategories: getDefaultCategoryIdsForRoom('客廳') },
+          { name: '飯廳', defects: {} }, selectedCategories: getDefaultCategoryIdsForRoom('飯廳') },
+          { name: '主人房', selectedCategories: getDefaultCategoryIdsForRoom('主人房') },
+          { name: '衣帽間', defects: {} }, selectedCategories: getDefaultCategoryIdsForRoom('衣帽間') },
+          { name: '主人浴室', defects: {} } selectedCategories: getDefaultCategoryIdsForRoom('主人浴室') }
         ]
       },
       {
@@ -980,9 +980,11 @@
         district: '港島',
         type: '私人住宅',
         categories: JSON.parse(JSON.stringify(DEFAULT_CATEGORIES)),
-        rooms: DEFAULT_HK_ROOMS.map(r => ({ name: r, defects: {} }))
-      }
-
+        rooms: DEFAULT_HK_ROOMS.map(r => ({ 
+          name: r, 
+          defects: {}, 
+          selectedCategories: getDefaultCategoryIdsForRoom(r) }))
+      },
     ];
 
     // STATE MANAGEMENT
